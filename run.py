@@ -3,6 +3,13 @@ import sys
 
 
 def main():
+    if '--background' in sys.argv:
+        from mawaqit import core
+        try:
+            core.background_loop()
+        except Exception:
+            core.log.exception('background')
+        return
     if '--auto' in sys.argv:
         from mawaqit import core
         try:

@@ -25,6 +25,8 @@ UninstallDisplayName={#AppName} – {#AppNameLat}
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
+CloseApplications=force
+RestartApplications=no
 LicenseFile=..\LICENSE
 
 [Languages]
@@ -46,5 +48,7 @@ Name: "{autodesktop}\{#AppName}"; Filename: "{app}\AlKitabAlMawqut.exe"; Tasks: 
 Filename: "{app}\AlKitabAlMawqut.exe"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]
-; remove the hourly automatic-print task if it exists
+; stop the hidden background process, remove start-with-Windows entry and the old hourly task
+Filename: "{sys}\taskkill.exe"; Parameters: "/IM AlKitabAlMawqut.exe /F"; Flags: runhidden; RunOnceId: "KillBg"
+Filename: "{sys}\reg.exe"; Parameters: "delete HKCU\Software\Microsoft\Windows\CurrentVersion\Run /v AlKitabAlMawqut /f"; Flags: runhidden; RunOnceId: "DelRun"
 Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /TN AlKitabAlMawqut /F"; Flags: runhidden; RunOnceId: "DelTask"

@@ -164,9 +164,61 @@ SYSTEMD = os.path.expanduser('~/.config/systemd/user')
 UNIT = 'alkitab-mawqut'
 
 
+RUN_KEY = r'Software\Microsoft\Windows\CurrentVersion\Run'
+PID_F = os.path.join(paths.USER, 'background.pid')
+
+
+def _win_run_value():
+    import winreg
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY) as k:
+            return winreg.QueryValueEx(k, TASK)[0]
+    except OSError:
+        return None
+
+
+def background_running():
+    """PID of the hidden background process, if alive."""
+    try:
+        pid = int(open(PID_F).read().strip())
+    except Exception:
+        return None
+    if WIN:
+        import ctypes
+        h = ctypes.windll.kernel32.OpenProcess(0x1000, False, pid)      # QUERY_LIMITED_INFORMATION
+        if not h: return None
+        code = ctypes.c_ulong(); ctypes.windll.kernel32.GetExitCodeProcess(h, ctypes.byref(code))
+        ctypes.windll.kernel32.CloseHandle(h)
+        return pid if code.value == 259 else None                         # STILL_ACTIVE
+    try:
+        os.kill(pid, 0); return pid
+    except OSError:
+        return None
+
+
+def start_background():
+    cmd = paths.launcher() + ['--background']
+    if WIN:
+        subprocess.Popen(cmd, creationflags=0x00000008 | 0x00000200 | NOWIN, close_fds=True,   # DETACHED | NEW_GROUP
+                         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    else:
+        subprocess.Popen(cmd, start_new_session=True, stdin=subprocess.DEVNULL,
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def stop_background():
+    pid = background_running()
+    if not pid: return
+    if WIN:
+        run_hidden([os.path.join(SYS32, 'taskkill.exe'), '/PID', str(pid), '/F'])
+    else:
+        try: os.kill(pid, 15)
+        except OSError: pass
+
+
 def task_on():
     if WIN:
-        return run_hidden([SCHTASKS, '/Query', '/TN', TASK]).returncode == 0
+        return _win_run_value() is not None
     if MAC:
         return os.path.exists(MAC_PLIST)
     if os.path.exists(os.path.join(SYSTEMD, UNIT + '.timer')):
@@ -178,12 +230,19 @@ def task_on():
 def set_task(on):
     cmd = paths.launcher() + ['--auto']
     if WIN:
-        if on:
-            r = run_hidden([SCHTASKS, '/Create', '/TN', TASK, '/SC', 'HOURLY', '/TR',
-                            ' '.join('"%s"' % a for a in cmd), '/F'])
-        else:
-            r = run_hidden([SCHTASKS, '/Delete', '/TN', TASK, '/F'])
-        return r.returncode == 0, ((r.stdout or '') + (r.stderr or '')).strip()
+        # Windows: start with Windows (HKCU Run = «Startup apps» in Settings) and stay hidden in the background
+        import winreg
+        run_hidden([SCHTASKS, '/Delete', '/TN', TASK, '/F'])          # old hourly task (v1.0–1.2)
+        with winreg.CreateKey(winreg.HKEY_CURRENT_USER, RUN_KEY) as k:
+            if on:
+                winreg.SetValueEx(k, TASK, 0, winreg.REG_SZ,
+                                  ' '.join('"%s"' % a for a in paths.launcher()) + ' --background')
+            else:
+                try: winreg.DeleteValue(k, TASK)
+                except OSError: pass
+        stop_background()
+        if on: start_background()                                      # no need to restart Windows
+        return True, ''
     if MAC:
         uid = str(os.getuid())
         if on:

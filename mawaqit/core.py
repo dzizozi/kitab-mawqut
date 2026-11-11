@@ -158,3 +158,28 @@ def auto_run():
     except Exception as e:
         log.error('auto print failed: %s', e)
         notify(paths.APP_NAME_AR, 'تعذّرت الطباعة: ' + str(e)[:120])
+
+
+def background_loop(interval_min=20):
+    """Hidden resident process started with Windows: waits for the new Hijri month, then prints.
+    Uses no window and ~no CPU (sleeps between checks; survives sleep/hibernate)."""
+    import time
+    if osal.WIN:
+        import ctypes
+        ctypes.windll.kernel32.CreateMutexW(None, False, 'Local\\' + paths.APP_ID + '-background')
+        if ctypes.windll.kernel32.GetLastError() == 183:        # ERROR_ALREADY_EXISTS -> one instance only
+            return
+    open(osal.PID_F, 'w').write(str(os.getpid()))
+    log.info('background started (pid %d)', os.getpid())
+    time.sleep(90)                                              # let the network come up after boot
+    while True:
+        cfg = config.load()
+        if not cfg.get('auto_print'):
+            log.info('auto print disabled - background exits'); break
+        try:
+            auto_run()
+        except Exception:
+            log.exception('background check')
+        time.sleep(interval_min * 60)
+    try: os.remove(osal.PID_F)
+    except OSError: pass

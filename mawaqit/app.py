@@ -94,7 +94,7 @@ class H(BaseHTTPRequestHandler):
             if u.path == '/api/state':
                 d = draft()
                 return self.send(200, dict(
-                    cfg=d, task=core.task_on(), month=month_info(d), version=paths.VERSION,
+                    cfg=d, task=core.task_on(), month=month_info(d), version=paths.VERSION, os=('win' if os.name == 'nt' else 'unix'),
                     countries=config.countries(), cities=config.cities(d['country']),
                     methods=[[k, calc.METHODS[k]['ar'], calc.METHODS[k]['en']] for k in calc.METHOD_ORDER],
                     themes=[[k, themes.THEMES[k]['name_ar'], themes.THEMES[k]['name_en']] for k in themes.ORDER]))

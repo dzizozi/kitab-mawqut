@@ -205,7 +205,7 @@ function showForm() {
 }
 function monthUI(m) { $('month').innerHTML = `الشهر الحالي: <b>${m.name}</b> – بدأ <b>${m.start}</b><br>القادم: <b>${m.next}</b>`; }
 function taskUI() { $('taskst').innerHTML = S.task
-  ? `<b>مفعّلة ✓</b> – عند دخول كل شهر هجري تُصمَّم الورقة وتُطبع وحدها على <b>${S.cfg.printer}</b> (${S.cfg.paper}).`
+  ? `<b>مفعّلة ✓</b> – البرنامج يقلع مع ${S.os === 'win' ? 'Windows' : 'النظام'} ويعمل مخفياً في الخلفية، وعند دخول كل شهر هجري تُصمَّم الورقة وتُطبع وحدها على <b>${S.cfg.printer}</b> (${S.cfg.paper}).`
   : 'غير مفعّلة. للتفعيل: أشّر على الخانة، اختر الطابعة وحجم الورقة، ثم «حفظ الإعدادات».'; }
 async function change(obj, all = true) {
   const r = await post('/api/draft', obj);
