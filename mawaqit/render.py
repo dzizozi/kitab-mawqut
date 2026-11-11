@@ -151,7 +151,12 @@ HIZB_CSS = """
 .hz .when .tm { font-family: 'Segoe UI', 'UILatin'; font-size: 15px; padding: 2px 10px; border-radius: 999px; border: 1px solid currentColor; opacity: .85 }
 .hz .num { font-family: 'Noto Kufi Arabic'; font-weight: 800; font-size: 66px; line-height: 1.15 }
 .hz .num small { display: block; margin-top: 6px; font-family: 'Segoe UI', 'UILatin'; font-size: 15px; font-weight: 600; letter-spacing: 1px; opacity: .7 }
-.hz .words { font-family: 'Amiri'; font-weight: 700; font-size: 38px; line-height: 1.6; max-width: 92% }
+.hz .card { gap: 6px !important }
+.hz .num { font-size: 52px !important }
+.hz .rng { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 4px 14px; width: 94% }
+.hz .rng .lb { font-size: 13px; font-weight: 700; padding: 3px 10px; border-radius: 999px; border: 1px solid currentColor; opacity: .7; justify-self: start }
+.hz .words { font-family: 'Amiri'; font-weight: 700; font-size: 31px; line-height: 1.55; text-align: center }
+.hz .words.end { font-size: 27px; opacity: .85 }
 .hz .words::before { content: '\\FD3F  '; opacity: .55 } .hz .words::after { content: '  \\FD3E'; opacity: .55 }
 .hz .where { font-size: 15px; opacity: .8 }
 .hz-dua { text-align: center; font-family: 'Amiri'; font-size: 17px; padding: 4px 10px }
@@ -180,12 +185,19 @@ def render_hizb_html(H, cfg, theme=None, font_base='/fonts/'):
                 % (UI['in_city'][0], e(city_ar), e(cfg.get('city_name', ''))))
 
     def card(h, label, label2, t):
-        where = ('أول ' if h['start_of_sura'] else 'من ') + 'سورة %s' % h['sura_name']
+        s1, s2 = h['sura_name'], h['end_sura_name']
+        where = ('من أول ' if h['start_of_sura'] else 'من ') + 'سورة ' + s1
+        if h['end_of_sura']:
+            where += ' إلى آخر ' + ('السورة' if s2 == s1 else 'سورة ' + s2)
+        elif s2 != s1:
+            where += ' إلى سورة ' + s2
         tm = '<span class="tm">%s</span>' % t if t else ''
         return ('<div class="panel card"><div class="when">%s <small>%s</small>%s</div>'
                 '<div class="num month">الحزب %d<small>Hizb %d / 60</small></div>'
-                '<div class="words">%s</div><div class="where">%s</div></div>'
-                % (label, label2, tm, h['n'], h['n'], e(h['words']), e(where)))
+                '<div class="rng"><span class="lb">بدايته</span><div class="words">%s</div>'
+                '<span class="lb">نهايته</span><div class="words end">%s</div></div>'
+                '<div class="where">%s</div></div>'
+                % (label, label2, tm, h['n'], h['n'], e(h['words']), e(h['end_words']), e(where)))
 
     t = H['times'] or [None] * 6
     return f'''<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>حزب اليوم {d.isoformat()}</title>

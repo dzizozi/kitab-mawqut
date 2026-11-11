@@ -30,10 +30,22 @@ for n in range(60):
         if (ss, aa) not in verses:
             ss, aa = ss + 1, 1
     k = 8 if (s, a) == (1, 1) else min(len(words), 5 if len(words) >= 5 else len(words))
-    out.append(dict(n=n + 1, sura=s, sura_name=suras[s - 1], aya=a, start_of_sura=(a == 1), words=' '.join(words[:k])))
+    # end of the hizb = last words of the verse just before the next hizb (hizb 60 ends with An-Nas)
+    if n < 59:
+        es, ea = quarters[(n + 1) * 4]
+        ea -= 1
+        if ea == 0:
+            es -= 1; ea = max(a for (s_, a) in verses if s_ == es)
+    else:
+        es, ea = 114, 6
+    ev = [w for w in verses[(es, ea)].split() if not re.fullmatch(r'[\u06D6-\u06ED]+', w)]
+    if ea == 1 and es not in (1, 9) and ev[0].startswith('بِسْمِ'):
+        ev = ev[4:]
+    end = ev[-5:] if len(ev) >= 5 else ev
+    out.append(dict(end_of_sura=((es, ea + 1) not in verses), end_sura=es, end_sura_name=suras[es - 1], end_aya=ea, end_words=' '.join(end), n=n + 1, sura=s, sura_name=suras[s - 1], aya=a, start_of_sura=(a == 1), words=' '.join(words[:k])))
 
 dst = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'mawaqit', 'data', 'ahzab.json')
 json.dump(dict(source='Tanzil Project – tanzil.net (Quran text: simple, CC BY 3.0)', ahzab=out),
           open(dst, 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
 for h in out:
-    print(h['n'], h['sura_name'], h['aya'], '|', h['words'])
+    print(h['n'], h['sura_name'], h['aya'], '|', h['words'], '  ==>  ', h['end_sura_name'], h['end_aya'], '|', h['end_words'])
