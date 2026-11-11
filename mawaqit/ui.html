@@ -62,6 +62,8 @@ h1 .ico { width: 28px; height: 28px }
 .vtabs button { border: 0; background: transparent; padding: 6px 12px; border-radius: 9px; font: inherit; font-size: 12px; cursor: pointer; color: inherit }
 .vtabs button.on { background: var(--accent); color: #fff; font-weight: 700 }
 .hz-sel { font-size: 12px }
+h3.sub { font-size: 13px; margin: 14px 0 4px; padding-top: 10px; border-top: 1px dashed rgba(0,0,0,.15) }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 8px } .grid2 .switch { margin: 0; font-size: 11px }
 .jobs { display: grid; gap: 6px; margin-top: 8px }
 .job { display: grid; grid-template-columns: 34px 44px 62px 1fr; gap: 6px; align-items: center; font-size: 12px }
 .job b { font-family: 'Segoe UI', 'UILatin'; font-size: 14px; color: var(--accent) } .job span { opacity: .75 }
@@ -176,6 +178,17 @@ body[data-theme=y2k] h1 { background: linear-gradient(90deg,#ff2fb8,#7a00ff,#00b
   <div class="row" style="margin-top:6px">
    <button class="btn" onclick="act('/api/hizb-print', hizbData())"><svg class="ico"><use href="#i-print"/></svg>اطبع ورقة الحزب</button>
    <button class="btn sec" onclick="act('/api/hizb-pdf', hizbData())"><svg class="ico"><use href="#i-file"/></svg>PDF</button></div>
+  <h3 class="sub">ختمة الشهر كاملة (30 صفحة · حزبان في اليوم)</h3>
+  <div class="grid2">
+   <div><label>من يوم</label><input type="date" id="hm_start"></div>
+   <div><label>ابتداءً من الحزب</label><input type="number" id="hm_first" min="1" max="60" value="1"></div>
+   <div><label>عدد النسخ</label><input type="number" id="hm_copies" min="1" max="20" value="1"></div>
+   <div><label>&nbsp;</label><label class="switch"><span>وجهان (recto-verso)</span><input type="checkbox" id="hm_duplex" checked></label></div>
+  </div>
+  <div class="status" id="hm_info"></div>
+  <div class="row" style="margin-top:8px">
+   <button class="btn" onclick="hizbMonth('/api/hizb-month')"><svg class="ico"><use href="#i-print"/></svg>اطبع الشهر كاملاً</button>
+   <button class="btn sec" onclick="hizbMonth('/api/hizb-month-pdf')"><svg class="ico"><use href="#i-file"/></svg>PDF</button></div>
  </div>
  <button class="btn" onclick="save()"><svg class="ico"><use href="#i-save"/></svg>حفظ الإعدادات</button>
 </aside>
@@ -207,6 +220,21 @@ const today = () => { const d = new Date(); return new Date(d - d.getTimezoneOff
 const hnext = (n, k = 1) => ((+n - 1 + k) % 60) + 1;
 function hizbData() { return {hizb_date: $('hizb_date').value || today(), hizb_fajr: +$('hizb_fajr').value, hizb_isha: +$('hizb_isha').value}; }
 async function hizbChange(extra) { const r = await post('/api/draft', Object.assign(hizbData(), extra || {})); if (r.ok) S.cfg = r.cfg; setView('hizb'); }
+function hmInfo() { const n = +$('hm_copies').value || 1, dup = $('hm_duplex').checked;
+  $('hm_info').innerHTML = `A4 فقط · ${dup ? 15 * n : 30 * n} ورقة${dup ? ' (وجهان)' : ''} على <b>${S.cfg.a4_printer || S.cfg.printer || '—'}</b>`; }
+async function hizbMonth(u) {
+  if (busy) return; busy = true;
+  const btns = document.querySelectorAll('aside .row .btn'); btns.forEach(b => b.disabled = true);
+  try {
+    const r = await post(u, {start: $('hm_start').value, first: +$('hm_first').value || 1, copies: +$('hm_copies').value || 1, duplex: $('hm_duplex').checked});
+    if (!r.ok) { toast(r.msg || 'خطأ', 5000); return; }
+    for (;;) { await new Promise(res => setTimeout(res, 1000));
+      const j = await fetch('/api/job').then(r => r.json());
+      if (j.running) { toast(`جارٍ تصميم الصفحات… ${j.done} / ${j.total}`, 3000); continue; }
+      toast(j.msg || 'تم ✓', 6000); break; }
+  } catch (e) { toast('خطأ: ' + e.message, 5000); }
+  finally { busy = false; btns.forEach(b => b.disabled = false); }
+}
 function hizbNext() {
   const d = new Date(($('hizb_date').value || today()) + 'T12:00:00'); d.setDate(d.getDate() + 1);
   $('hizb_date').value = d.toISOString().slice(0, 10);
@@ -269,6 +297,8 @@ async function load() {
     $('hizb_fajr').innerHTML = $('hizb_isha').innerHTML = opts;
     $('hizb_fajr').value = S.cfg.hizb_fajr || 1; $('hizb_isha').value = S.cfg.hizb_isha || hnext(S.cfg.hizb_fajr || 1); });
   $('hizb_date').value = today();
+  $('hm_start').value = S.month_start; hmInfo();
+  for (const k of ['hm_copies','hm_duplex']) $(k).onchange = hmInfo;
   $('hizb_date').onchange = () => hizbChange();
   $('hizb_fajr').onchange = () => { $('hizb_isha').value = hnext($('hizb_fajr').value); hizbChange(); };
   $('hizb_isha').onchange = () => hizbChange();
@@ -285,7 +315,7 @@ async function load() {
   $('morocco_plus1').onchange = () => change({morocco_plus1: $('morocco_plus1').checked});
   for (const k of ['mosque_name','dua','city_ar','city_name']) $(k).oninput = () => debounced(() => change({[k]: $(k).value}));
   $('tune').oninput = () => debounced(() => change({tune: Object.fromEntries(PR.map(([k]) => [k, +$('t_' + k).value || 0]))}));
-  for (const k of ['a4_printer','a3_printer']) $(k).onchange = () => change({[k]: $(k).value}, false);
+  for (const k of ['a4_printer','a3_printer']) $(k).onchange = () => change({[k]: $(k).value}, false).then(hmInfo);
   for (const k of ['a4_copies','a3_copies']) $(k).onchange = () => change({[k]: +$(k).value || 0}, false);
   $('auto_print').onchange = () => change({auto_print: $('auto_print').checked}, false);
   $('file').onchange = () => { const f = $('file').files[0]; if (!f) return; const rd = new FileReader();

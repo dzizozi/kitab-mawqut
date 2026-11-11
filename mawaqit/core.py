@@ -224,3 +224,37 @@ def background_loop(interval_min=20):
         time.sleep(interval_min * 60)
     try: os.remove(osal.PID_F)
     except OSError: pass
+
+
+def hizb_month_files(cfg, start_day, first_hizb=1, days=30, theme=None, progress=None):
+    """30 hizb pages (2 hizbs/day = one khatma) -> list of PNGs + one multi-page A4 PDF."""
+    from PIL import Image
+    from . import ahzab
+    theme = theme or cfg.get('theme', 'glass')
+    pngs = []
+    for k in range(days):
+        day = start_day + D(days=k)
+        f = ahzab.nxt(first_hizb, 2 * k)
+        H = ahzab.day_model(cfg, day, f, ahzab.nxt(f))
+        png, _ = render_files(H, cfg, theme, pdf=False, paper='A4', sheet='hizb')
+        pngs.append(png)
+        if progress: progress(k + 1, days)
+    pdf = os.path.join(paths.OUT, 'ahzab-%s-%s.pdf' % (start_day.isoformat(), theme))
+    ims = [Image.open(p).convert('RGB') for p in pngs]
+    ims[0].save(pdf, 'PDF', resolution=ims[0].width / 8.27, save_all=True, append_images=ims[1:])
+    return pngs, pdf
+
+
+def print_hizb_month(cfg, start_day, first_hizb=1, copies=1, printer=None, duplex=True, progress=None):
+    if not _print_lock.acquire(blocking=False):
+        raise RuntimeError('الطباعة جارية، انتظر قليلاً')
+    try:
+        printer = printer or cfg.get('a4_printer') or cfg.get('printer') or ''
+        if not printer:
+            raise RuntimeError('اختر طابعة A4 أولاً')
+        pngs, pdf = hizb_month_files(cfg, start_day, first_hizb, progress=progress)
+        print_sheet(pngs, pdf, dict(cfg, paper='A4', copies=copies, printer=printer, duplex=duplex))
+        sheets = (len(pngs) + 1) // 2 if duplex else len(pngs)
+        return '%d صفحة على %d ورقة A4%s' % (len(pngs), sheets * copies, ' (وجهان)' if duplex else '')
+    finally:
+        _print_lock.release()

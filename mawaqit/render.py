@@ -153,9 +153,9 @@ HIZB_CSS = """
 .hz .num small { display: block; margin-top: 6px; font-family: 'Segoe UI', 'UILatin'; font-size: 15px; font-weight: 600; letter-spacing: 1px; opacity: .7 }
 .hz .card { gap: 6px !important }
 .hz .num { font-size: 52px !important }
-.hz .rng { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 4px 14px; width: 94% }
-.hz .rng .lb { font-size: 13px; font-weight: 700; padding: 3px 10px; border-radius: 999px; border: 1px solid currentColor; opacity: .7; justify-self: start }
-.hz .words { font-family: 'Amiri'; font-weight: 700; font-size: 31px; line-height: 1.55; text-align: center }
+.hz .rng { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100% }
+.hz .rng .lb { font-size: 12px; font-weight: 700; padding: 1px 12px; border-radius: 999px; border: 1px solid currentColor; opacity: .65; margin-top: 4px }
+.hz .words { font-family: 'Amiri'; font-weight: 700; font-size: 31px; line-height: 1.55; text-align: center; width: 100%; padding: 0 4% }
 .hz .words.end { font-size: 27px; opacity: .85 }
 .hz .words::before { content: '\\FD3F  '; opacity: .55 } .hz .words::after { content: '  \\FD3E'; opacity: .55 }
 .hz .where { font-size: 15px; opacity: .8 }

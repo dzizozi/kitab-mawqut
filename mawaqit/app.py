@@ -5,6 +5,7 @@ from . import paths, config, core, render, themes, calc, ahzab
 
 _lock = threading.Lock()
 STATE = dict(cfg=None, draft=None, model=None, model_sig=None)
+JOB = dict(running=False, done=0, total=0, msg='', ok=None)
 MODEL_KEYS = ('country', 'lat', 'lon', 'tz', 'habous_id', 'method', 'asr', 'hijri_mode', 'hijri_adjust', 'morocco_plus1', 'tune')
 
 
@@ -104,12 +105,14 @@ class H(BaseHTTPRequestHandler):
             if u.path == '/hizb-sheet':
                 d = draft()
                 return self.send(200, render.render_hizb_html(hizb_model(d), d, q.get('theme')), 'text/html; charset=utf-8')
+            if u.path == '/api/job':
+                return self.send(200, JOB)
             if u.path == '/api/ahzab':
                 return self.send(200, ahzab.choices())
             if u.path == '/api/state':
                 d = draft()
                 return self.send(200, dict(
-                    cfg=d, task=core.task_on(), month=month_info(d), version=paths.VERSION, os=('win' if os.name == 'nt' else 'unix'),
+                    cfg=d, task=core.task_on(), month_start=model(d)['start'].isoformat(), month=month_info(d), version=paths.VERSION, os=('win' if os.name == 'nt' else 'unix'),
                     countries=config.countries(), cities=config.cities(d['country']),
                     methods=[[k, calc.METHODS[k]['ar'], calc.METHODS[k]['en']] for k in calc.METHOD_ORDER],
                     themes=[[k, themes.THEMES[k]['name_ar'], themes.THEMES[k]['name_en']] for k in themes.ORDER]))
@@ -160,6 +163,31 @@ class H(BaseHTTPRequestHandler):
                     core.open_path(pdf); return self.send(200, dict(ok=True, msg='تم فتح ملف PDF (%s) ✓' % paper))
                 summary = core.print_all(H, d, sheet='hizb')
                 return self.send(200, dict(ok=True, msg='أُرسلت ورقة الحزب إلى الطابعة: ' + summary + ' ✓'))
+            if self.path in ('/api/hizb-month', '/api/hizb-month-pdf'):
+                if JOB['running']:
+                    return self.send(200, dict(ok=False, msg='العمل جارٍ، انتظر قليلاً'))
+                d = draft()
+                start = dt.date.fromisoformat(data.get('start') or model(d)['start'].isoformat())
+                first = max(1, min(60, int(data.get('first') or 1)))
+                copies = max(1, min(20, int(data.get('copies') or 1)))
+                duplex = bool(data.get('duplex', True))
+                is_pdf = self.path.endswith('pdf')
+                JOB.update(running=True, done=0, total=30, msg='', ok=None)
+
+                def work():
+                    prog = lambda k, n: JOB.update(done=k, total=n)
+                    try:
+                        if is_pdf:
+                            _, pdf = core.hizb_month_files(d, start, first, progress=prog)
+                            core.open_path(pdf); JOB.update(ok=True, msg='تم فتح ملف PDF (30 صفحة A4) ✓')
+                        else:
+                            JOB.update(ok=True, msg='أُرسلت إلى الطابعة: ' + core.print_hizb_month(d, start, first, copies, duplex=duplex, progress=prog) + ' ✓')
+                    except Exception as e:
+                        core.log.exception('hizb month'); JOB.update(ok=False, msg=str(e))
+                    finally:
+                        JOB['running'] = False
+                threading.Thread(target=work, daemon=True).start()
+                return self.send(200, dict(ok=True, started=True))
             if self.path == '/api/folder':
                 core.open_path(paths.OUT); return self.send(200, dict(ok=True))
             self.send(404, {'error': 'not found'})

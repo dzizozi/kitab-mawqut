@@ -94,47 +94,63 @@ def printers():
 
 
 def print_sheet(png, pdf, cfg, to_file=None):
+    """png: one image path or a list (one page each). cfg['duplex'] -> recto-verso (long edge)."""
+    pngs = png if isinstance(png, (list, tuple)) else [png]
     paper = 'A3' if cfg.get('paper') == 'A3' else 'A4'
     copies = int(cfg.get('copies', 1))
     printer = cfg.get('printer', '')
+    duplex = bool(cfg.get('duplex'))
     if not WIN:
         args = ['lp', '-n', str(copies), '-o', 'media=' + paper, '-o', 'fit-to-page', '-t', 'Al-Kitab Al-Mawqut']
+        if duplex: args += ['-o', 'sides=two-sided-long-edge', '-o', 'collate=true']
         if printer: args += ['-d', printer]
-        r = run_hidden(args + [pdf], timeout=120)
+        r = run_hidden(args + [pdf], timeout=300)
         if r.returncode: raise RuntimeError((r.stderr or r.stdout or 'lp error').strip()[-300:])
         return
     q = lambda s: str(s).replace("'", "''")
-    script = r'''
+    files = ','.join("'%s'" % q(f) for f in pngs)
+    script = r"""
 $ErrorActionPreference = 'Stop'
 try {
 Add-Type -AssemblyName System.Drawing
-$img = [System.Drawing.Image]::FromFile('%s')
+$files = @(%s)
+$global:i = 0
 $pd = New-Object System.Drawing.Printing.PrintDocument
 if ('%s' -ne '') { $pd.PrinterSettings.PrinterName = '%s' }
 $pd.PrinterSettings.Copies = %d
+$pd.PrinterSettings.Collate = $true
 $pd.DocumentName = 'Al-Kitab Al-Mawqut'
+if (%s) {
+  if (-not $pd.PrinterSettings.CanDuplex) { throw 'DUPLEX-NO' }
+  $pd.PrinterSettings.Duplex = [System.Drawing.Printing.Duplex]::Vertical      # long edge (portrait book)
+}
 $pd.OriginAtMargins = $false
 $pd.DefaultPageSettings.Landscape = $false
 $pd.DefaultPageSettings.Margins = New-Object System.Drawing.Printing.Margins(0,0,0,0)
 foreach ($s in $pd.PrinterSettings.PaperSizes) { if ($s.Kind -eq '%s') { $pd.DefaultPageSettings.PaperSize = $s; $pd.PrinterSettings.DefaultPageSettings.PaperSize = $s } }
 $pd.add_PrintPage({ param($s,$e)
-  # Graphics origin = top-left of the PRINTABLE area (printers cannot print to the paper edge):
-  # fit the whole sheet inside the printable area, centred, aspect ratio kept.
+  # Graphics origin = top-left of the PRINTABLE area: fit the page inside it, centred, aspect ratio kept.
+  $img = [System.Drawing.Image]::FromFile($files[$global:i])
   $v = $e.Graphics.VisibleClipBounds
   $r = [Math]::Min($v.Width / $img.Width, $v.Height / $img.Height)
   $w = $img.Width * $r; $h = $img.Height * $r
   $e.Graphics.InterpolationMode = 'HighQualityBicubic'
   $e.Graphics.DrawImage($img, [single]($v.X + ($v.Width - $w) / 2), [single]($v.Y + ($v.Height - $h) / 2), [single]$w, [single]$h)
-  $e.HasMorePages = $false })
+  $img.Dispose()
+  $global:i++
+  $e.HasMorePages = ($global:i -lt $files.Count) })
+$pd.add_BeginPrint({ $global:i = 0 })
 %s
-$pd.Print(); $img.Dispose(); 'PRINT-OK'
+$pd.Print(); 'PRINT-OK'
 } catch { 'PRINT-ERR ' + $_.Exception.Message }
-''' % (q(png), q(printer), q(printer), copies, paper,
+""" % (files, q(printer), q(printer), copies, '$true' if duplex else '$false', paper,
        ("$pd.PrinterSettings.PrintToFile = $true; $pd.PrinterSettings.PrintFileName = '%s'" % q(to_file)) if to_file else '')
-    r = _ps(script)
+    r = _ps(script, timeout=180 + 20 * len(pngs))
     out = r.stdout or ''
     if 'PRINT-OK' not in out:
         err = [l for l in out.splitlines() if l.startswith('PRINT-ERR')]
+        if err and 'DUPLEX-NO' in err[0]:
+            raise RuntimeError('هذه الطابعة لا تدعم الطباعة على الوجهين (recto-verso)')
         raise RuntimeError(err[0][10:] if err else (r.stderr or out)[-300:])
 
 
