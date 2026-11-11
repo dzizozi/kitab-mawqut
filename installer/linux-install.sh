@@ -16,7 +16,7 @@ cat > "$HOME/.local/share/applications/alkitab-mawqut.desktop" <<EOF
 [Desktop Entry]
 Type=Application
 Name=Al-Kitab Al-Mawqut
-Name[ar]=الكتاب الموقوت
+Name[ar]=كتابا موقوتا
 Comment=Monthly Hijri prayer-time sheet
 Exec="$DEST/AlKitabAlMawqut"
 Icon=$DEST/icon.png
@@ -24,6 +24,6 @@ Categories=Utility;Office;
 Terminal=false
 EOF
 update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
-echo "Installed: $DEST  (menu: Al-Kitab Al-Mawqut / الكتاب الموقوت)"
+echo "Installed: $DEST  (menu: Al-Kitab Al-Mawqut / كتابا موقوتا)"
 echo "If the window does not open, install the Qt WebEngine runtime libraries, e.g. on Debian/Ubuntu:"
 echo "  sudo apt install libnss3 libxkbfile1 libxcomposite1 libxdamage1 libxrandr2 libxtst6 libasound2 libxcb-cursor0"

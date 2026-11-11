@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">الكتاب الموقوت</string>
-    <string name="title_activity_main">الكتاب الموقوت</string>
+    <string name="app_name">كتابا موقوتا</string>
+    <string name="title_activity_main">كتابا موقوتا</string>
     <string name="package_name">io.github.dzizozi.alkitab</string>
     <string name="custom_url_scheme">io.github.dzizozi.alkitab</string>
 </resources>

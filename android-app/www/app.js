@@ -113,7 +113,7 @@ async function scheduleReminders() {
     const d = n.debut, y = d.getUTCFullYear(), m = d.getUTCMonth(), day = d.getUTCDate();
     const eve = new Date(y, m, day - 1, 20, 0), morn = new Date(y, m, day, 9, 0);
     if (eve > now) list.push({ id: 1000 + i * 2, title: 'غداً بإذن الله فاتح ' + name, body: 'جهّز ورقة مواقيت الصلاة للشهر الجديد', schedule: { at: eve }, isExactNotification: false });
-    if (morn > now) list.push({ id: 1001 + i * 2, title: 'دخل شهر ' + name, body: 'افتح «الكتاب الموقوت» لطباعة ورقة الشهر', schedule: { at: morn }, isExactNotification: false });
+    if (morn > now) list.push({ id: 1001 + i * 2, title: 'دخل شهر ' + name, body: 'افتح «كتابا موقوتا» لطباعة ورقة الشهر', schedule: { at: morn }, isExactNotification: false });
   });
   if (list.length) await LN.schedule({ notifications: list });
 }
@@ -126,7 +126,7 @@ async function cancelReminders() {
 // ---------------------------------------------------------------- init
 async function init() {
   cfg = load(); document.body.dataset.theme = cfg.theme;
-  $('ver').textContent = 'الكتاب الموقوت – الإصدار ' + S.version;
+  $('ver').textContent = 'كتابا موقوتا – الإصدار ' + S.version;
   await model.loadPlaces();
   cityRows = model.cities(cfg.country);
   $('country').innerHTML = model.countries().map(([cc, ar, fr, en]) => `<option value="${cc}">${ar}</option>`).join('');

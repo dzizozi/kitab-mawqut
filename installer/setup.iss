@@ -1,5 +1,5 @@
 ; Inno Setup script – per-user install, no admin rights needed.
-#define AppName "الكتاب الموقوت"
+#define AppName "كتابا موقوتا"
 #define AppNameLat "Al-Kitab Al-Mawqut"
 #define AppVersion GetEnv("APP_VERSION")
 #if AppVersion == ""
@@ -39,6 +39,11 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 Source: "..\dist\AlKitabAlMawqut\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+
+[InstallDelete]
+; shortcuts of the old name (before v1.4.1)
+Type: files; Name: "{autoprograms}\الكتاب الموقوت.lnk"
+Type: files; Name: "{autodesktop}\الكتاب الموقوت.lnk"
 
 [Icons]
 Name: "{autoprograms}\{#AppName}"; Filename: "{app}\AlKitabAlMawqut.exe"
