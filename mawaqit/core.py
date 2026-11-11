@@ -109,27 +109,67 @@ def _shift(hhmm, minutes):
 
 
 # ---------------------------------------------------------------- rendering
-def render_files(M, cfg, theme=None, pdf=True):
+import threading
+_render_lock = threading.Lock()
+
+
+def render_files(M, cfg, theme=None, pdf=True, paper=None):
+    """Sheet -> PNG (+PDF). Serialised and atomic: two clicks on «print» can no longer collide."""
     from PIL import Image
     theme = theme or cfg.get('theme', 'glass')
-    a3 = cfg.get('paper') == 'A3'
-    base = os.path.join(paths.OUT, 'mawaqit-%s-%s' % (M['key'], theme))
-    html = render.render_html(M, cfg, theme, font_base=render.file_url(paths.FONTS) + '/')
-    open(base + '.html', 'w', encoding='utf-8').write(html)
-    tmp = tempfile.mkdtemp(prefix='render-', dir=paths.CACHE)
-    try:
-        if os.path.exists(base + '.png'): os.remove(base + '.png')
-        osal.screenshot(base + '.html', base + '.png', 4.2 if a3 else 3, tmp)
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
-    if pdf:   # PDF built from the PNG (keeps blur/glass effects exactly as rendered)
-        im = Image.open(base + '.png').convert('RGB')
-        im.save(base + '.pdf', 'PDF', resolution=im.width / (11.69 if a3 else 8.27))
+    a3 = (paper or cfg.get('paper')) == 'A3'
+    base = os.path.join(paths.OUT, 'mawaqit-%s-%s%s' % (M['key'], theme, '-A3' if a3 else ''))
+    with _render_lock:
+        html = render.render_html(M, cfg, theme, font_base=render.file_url(paths.FONTS) + '/')
+        open(base + '.html', 'w', encoding='utf-8').write(html)
+        tmp = tempfile.mkdtemp(prefix='render-', dir=paths.CACHE)
+        tmp_png = os.path.join(tmp, 'sheet.png')
+        try:
+            for attempt in (1, 2):                       # one retry if the headless browser hiccups
+                try:
+                    osal.screenshot(base + '.html', tmp_png, 4.2 if a3 else 3, os.path.join(tmp, 'profile%d' % attempt))
+                    break
+                except Exception:
+                    if attempt == 2: raise
+                    log.warning('render retry')
+            os.replace(tmp_png, base + '.png')
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        if pdf:   # PDF built from the PNG (keeps blur/glass effects exactly as rendered)
+            im = Image.open(base + '.png').convert('RGB')
+            im.save(base + '.pdf', 'PDF', resolution=im.width / (11.69 if a3 else 8.27))
     return base + '.png', (base + '.pdf' if pdf else None)
 
 
 def print_sheet(png, pdf, cfg, to_file=None):
+    if os.environ.get('MAWQUT_DRYRUN'):          # diagnostics: everything except the real print job
+        log.info('dry-run print %s x%s on %s: %s', cfg.get('paper'), cfg.get('copies'), cfg.get('printer'), png); return
     osal.print_sheet(png, pdf, cfg, to_file)
+
+
+_print_lock = threading.Lock()
+
+
+def print_all(M, cfg):
+    """Print every configured size (e.g. 2 x A3 + 3 x A4). Returns a short Arabic summary."""
+    if not _print_lock.acquire(blocking=False):
+        raise RuntimeError('الطباعة جارية، انتظر قليلاً')
+    try:
+        return _print_all(M, cfg)
+    finally:
+        _print_lock.release()
+
+
+def _print_all(M, cfg):
+    jobs = config.print_jobs(cfg)
+    if not jobs:
+        raise RuntimeError('اختر عدد الأوراق والطابعة لحجم A4 أو A3')
+    done = []
+    for paper, copies, printer in jobs:
+        png, pdf = render_files(M, cfg, paper=paper)
+        print_sheet(png, pdf, dict(cfg, paper=paper, copies=copies, printer=printer))
+        done.append('%d × %s' % (copies, paper))
+    return ' + '.join(done)
 
 
 def set_task(on, current_key=None):
@@ -142,19 +182,18 @@ def set_task(on, current_key=None):
 def auto_run():
     """Called hourly by the OS scheduler (Task Scheduler / launchd / systemd)."""
     cfg = config.load()
-    if not (cfg.get('auto_print') and cfg.get('printer')):
+    if not (cfg.get('auto_print') and config.print_jobs(cfg)):
         return
     state = json.load(open(paths.STATE_F)) if os.path.exists(paths.STATE_F) else {}
     M = build_model(cfg)
     if M['start'] > dt.date.today() + D(days=1) or state.get('printed') == M['key']:
         return
-    png, pdf = render_files(M, cfg)
     title = '%s %d' % (HIJRI['ar'][M['mois'] - 1], M['annee'])
     try:
-        print_sheet(png, pdf, cfg)
+        summary = print_all(M, cfg)
         state['printed'] = M['key']; json.dump(state, open(paths.STATE_F, 'w'))
-        log.info('auto-printed %s', M['key'])
-        notify(paths.APP_NAME_AR, 'طُبعت ورقة شهر ' + title)
+        log.info('auto-printed %s: %s', M['key'], summary)
+        notify(paths.APP_NAME_AR, 'طُبعت ورقة شهر %s (%s)' % (title, summary))
     except Exception as e:
         log.error('auto print failed: %s', e)
         notify(paths.APP_NAME_AR, 'تعذّرت الطباعة: ' + str(e)[:120])

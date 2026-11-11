@@ -8,17 +8,36 @@ DEFAULTS = dict(
     tune=dict(fajr=0, sunrise=0, dhuhr=0, asr=0, maghrib=0, isha=0),
     lang2='fr', mosque_name='', mosque_image='', dua='',
     theme='glass', printer='', paper='A4', copies=1, auto_print=False,
+    a4_copies=1, a4_printer='', a3_copies=0, a3_printer='',
 )
 
 
 def load():
     cfg = dict(DEFAULTS)
+    saved = {}
     if os.path.exists(paths.CONFIG_F):
         try:
-            cfg.update(json.load(open(paths.CONFIG_F, encoding='utf-8')))
+            saved = json.load(open(paths.CONFIG_F, encoding='utf-8'))
+            cfg.update(saved)
         except Exception:
             pass
+    if 'a4_copies' not in saved and saved:            # migrate v1.0–1.2 (one paper size)
+        n = int(saved.get('copies', 1) or 1)
+        big = saved.get('paper') == 'A3'
+        cfg.update(a4_copies=0 if big else n, a3_copies=n if big else 0,
+                   a4_printer=saved.get('printer', ''), a3_printer=saved.get('printer', ''))
     return cfg
+
+
+def print_jobs(cfg):
+    """[(paper, copies, printer)] for every size with copies > 0 and a printer."""
+    out = []
+    for paper in ('A3', 'A4'):
+        k = paper.lower()
+        n, pr = int(cfg.get(k + '_copies') or 0), cfg.get(k + '_printer') or cfg.get('printer') or ''
+        if n > 0 and pr:
+            out.append((paper, n, pr))
+    return out
 
 
 def save(cfg):

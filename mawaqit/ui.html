@@ -27,7 +27,7 @@ input[type=number] { padding: 6px 4px; text-align: center }
 .btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; font: inherit; font-weight: 700; font-size: 13.5px;
   padding: 9px; cursor: pointer; border: var(--bborder); border-radius: var(--bradius); background: var(--btn); color: var(--btnfg);
   box-shadow: var(--bshadow); transition: transform .1s, filter .15s }
-.btn:hover { filter: brightness(1.07) } .btn:active { transform: translate(1px, 2px) }
+.btn:hover { filter: brightness(1.07) } .btn:disabled { opacity: .55; cursor: wait } .btn:active { transform: translate(1px, 2px) }
 .btn.sec { background: var(--btn2); color: var(--btn2fg) }
 .btn.small { width: auto; padding: 6px 12px; font-size: 12px }
 .row { display: flex; gap: 8px; align-items: end } .row > * { flex: 1 }
@@ -58,6 +58,10 @@ main { display: grid; grid-template-rows: auto 1fr; gap: var(--gap); min-height:
 .ico { width: 19px; height: 19px; flex: none; fill: var(--icofill); stroke: var(--ico); stroke-width: var(--icow); stroke-linecap: round; stroke-linejoin: round }
 h1 .ico { width: 28px; height: 28px }
 .hide { display: none !important }
+.jobs { display: grid; gap: 6px; margin-top: 8px }
+.job { display: grid; grid-template-columns: 34px 44px 62px 1fr; gap: 6px; align-items: center; font-size: 12px }
+.job b { font-family: 'Segoe UI', 'UILatin'; font-size: 14px; color: var(--accent) } .job span { opacity: .75 }
+.job select { font-size: 12px; padding: 6px 6px }
 
 body[data-theme=glass] { --font: 'Noto Kufi Arabic', 'Segoe UI', 'UILatin'; --bg: linear-gradient(140deg,#cdeee3,#dfe5fb 50%,#f8e7cf); --fg: #17324a;
   --panel: rgba(255,255,255,.45); --border: 1px solid rgba(255,255,255,.8); --radius: 22px; --shadow: 0 8px 30px rgba(30,70,100,.15);
@@ -146,9 +150,11 @@ body[data-theme=y2k] h1 { background: linear-gradient(90deg,#ff2fb8,#7a00ff,#00b
  </div>
 
  <div class="panel"><h2><svg class="ico"><use href="#i-print"/></svg>الطباعة</h2>
-  <label>الطابعة</label><select id="printer"><option value="">جارٍ البحث عن الطابعات…</option></select>
-  <div class="row"><div><label>حجم الورقة</label><select id="paper"><option>A4</option><option>A3</option></select></div>
-   <div><label>عدد النسخ</label><input type="number" id="copies" min="1" max="20"></div></div>
+  <div class="status">اختر عدد الأوراق من كل حجم، والطابعة لكل حجم (0 = لا شيء).</div>
+  <div class="jobs">
+   <div class="job"><b>A3</b><span>الكبيرة</span><input type="number" id="a3_copies" min="0" max="50"><select id="a3_printer"></select></div>
+   <div class="job"><b>A4</b><span>العادية</span><input type="number" id="a4_copies" min="0" max="50"><select id="a4_printer"></select></div>
+  </div>
   <div class="row" style="margin-top:10px">
    <button class="btn" onclick="act('/api/print')"><svg class="ico"><use href="#i-print"/></svg>اطبع الآن</button>
    <button class="btn sec" onclick="act('/api/pdf')"><svg class="ico"><use href="#i-file"/></svg>PDF</button></div>
@@ -187,8 +193,9 @@ function fillCities(list) {
 function cityLabel() { for (const [lab, k] of Object.entries(cityMap)) if (k === S.cfg.city_key) return lab; return S.cfg.city_ar || S.cfg.city_name; }
 function showForm() {
   const c = S.cfg;
-  for (const k of ['method','asr','lang2','paper']) $(k).value = String(c[k] ?? '');
-  if ($('printer').options.length > 1) $('printer').value = c.printer || '';
+  for (const k of ['method','asr','lang2']) $(k).value = String(c[k] ?? '');
+  for (const k of ['a4','a3']) { $(k + '_copies').value = c[k + '_copies'] ?? 0;
+    if ($(k + '_printer').options.length > 1) $(k + '_printer').value = c[k + '_printer'] || ''; }
   $('hijri_adjust').value = c.hijri_adjust > 0 ? '+' + c.hijri_adjust : String(c.hijri_adjust || 0);
   $('country').value = c.country;
   $('hijri_mode').innerHTML = (c.country === 'MA' ? '<option value="morocco">إعلان وزارة الأوقاف المغربية</option>' : '') +
@@ -196,7 +203,7 @@ function showForm() {
   $('hijri_mode').value = c.hijri_mode;
   $('plus1row').classList.toggle('hide', c.country !== 'MA'); $('morocco_plus1').checked = !!c.morocco_plus1;
   $('city').value = cityLabel(); $('city_ar').value = c.city_ar || ''; $('city_name').value = c.city_name || '';
-  $('mosque_name').value = c.mosque_name || ''; $('dua').value = c.dua || ''; $('copies').value = c.copies || 1;
+  $('mosque_name').value = c.mosque_name || ''; $('dua').value = c.dua || '';
   $('auto_print').checked = !!c.auto_print;
   PR.forEach(([k]) => $('t_' + k).value = (c.tune || {})[k] || 0);
   $('imgph').innerHTML = c.mosque_image ? `<img src="/sheet-img?${Date.now()}">` : '<svg class="ico"><use href="#i-img"/></svg>';
@@ -205,8 +212,11 @@ function showForm() {
 }
 function monthUI(m) { $('month').innerHTML = `الشهر الحالي: <b>${m.name}</b> – بدأ <b>${m.start}</b><br>القادم: <b>${m.next}</b>`; }
 function taskUI() { $('taskst').innerHTML = S.task
-  ? `<b>مفعّلة ✓</b> – البرنامج يقلع مع ${S.os === 'win' ? 'Windows' : 'النظام'} ويعمل مخفياً في الخلفية، وعند دخول كل شهر هجري تُصمَّم الورقة وتُطبع وحدها على <b>${S.cfg.printer}</b> (${S.cfg.paper}).`
-  : 'غير مفعّلة. للتفعيل: أشّر على الخانة، اختر الطابعة وحجم الورقة، ثم «حفظ الإعدادات».'; }
+  ? `<b>مفعّلة ✓</b> – البرنامج يقلع مع ${S.os === 'win' ? 'Windows' : 'النظام'} ويعمل مخفياً في الخلفية، وعند دخول كل شهر هجري يطبع وحده: <b>${jobsText()}</b>.`
+  : 'غير مفعّلة. للتفعيل: حدّد العدد والطابعة لكل حجم، أشّر على الخانة، ثم «حفظ الإعدادات».'; }
+function jobsText() { const c = S.cfg, out = [];
+  for (const k of ['a3','a4']) if ((+c[k + '_copies'] || 0) > 0 && c[k + '_printer']) out.push(`${c[k + '_copies']} × ${k.toUpperCase()} (${c[k + '_printer']})`);
+  return out.join(' + ') || '—'; }
 async function change(obj, all = true) {
   const r = await post('/api/draft', obj);
   if (!r.ok) { toast(r.msg || 'خطأ'); return; }
@@ -226,8 +236,9 @@ async function load() {
   fillCities(S.cities); monthUI(S.month); showForm();
   setTheme(S.cfg.theme || 'glass'); refresh(true); fit();
   fetch('/api/printers').then(r => r.json()).then(ps => {
-    $('printer').innerHTML = '<option value="">— اختر الطابعة —</option>' + ps.map(p => `<option>${p}</option>`).join('');
-    $('printer').value = S.cfg.printer || ''; });
+    for (const k of ['a4','a3']) {
+      $(k + '_printer').innerHTML = '<option value="">— الطابعة —</option>' + ps.map(p => `<option>${p}</option>`).join('');
+      $(k + '_printer').value = S.cfg[k + '_printer'] || ''; } });
   // events
   $('country').onchange = () => change({country: $('country').value});
   $('city').onchange = () => { const k = cityMap[$('city').value]; if (k) change({city_key: k}); };
@@ -236,16 +247,23 @@ async function load() {
   $('morocco_plus1').onchange = () => change({morocco_plus1: $('morocco_plus1').checked});
   for (const k of ['mosque_name','dua','city_ar','city_name']) $(k).oninput = () => debounced(() => change({[k]: $(k).value}));
   $('tune').oninput = () => debounced(() => change({tune: Object.fromEntries(PR.map(([k]) => [k, +$('t_' + k).value || 0]))}));
-  for (const k of ['printer','paper']) $(k).onchange = () => change({[k]: $(k).value}, false);
-  $('copies').onchange = () => change({copies: +$('copies').value}, false);
+  for (const k of ['a4_printer','a3_printer']) $(k).onchange = () => change({[k]: $(k).value}, false);
+  for (const k of ['a4_copies','a3_copies']) $(k).onchange = () => change({[k]: +$(k).value || 0}, false);
   $('auto_print').onchange = () => change({auto_print: $('auto_print').checked}, false);
   $('file').onchange = () => { const f = $('file').files[0]; if (!f) return; const rd = new FileReader();
     rd.onload = () => setImage(rd.result); rd.readAsDataURL(f); $('file').value = ''; };
 }
 async function setImage(data) { const r = await post('/api/image', {data}); S.cfg = r.cfg; showForm(); refresh(true); }
 async function save() { const r = await post('/api/save', {}); if (r.task !== undefined) S.task = r.task; taskUI(); toast(r.msg || (r.ok ? 'تم ✓' : 'خطأ'), 3500); }
-async function act(u) { toast(u.includes('print') ? 'جارٍ تجهيز الورقة وإرسالها للطابعة…' : 'جارٍ تجهيز ملف PDF…', 9000);
-  const r = await post(u); toast(r.msg || (r.ok ? 'تم ✓' : 'خطأ'), 4000); }
+let busy = false;
+async function act(u) {
+  if (busy) return; busy = true;
+  document.querySelectorAll('.jobs ~ .row .btn').forEach(b => b.disabled = true);
+  toast(u.includes('print') ? 'جارٍ تجهيز الورقة وإرسالها للطابعة…' : 'جارٍ تجهيز ملف PDF…', 30000);
+  try { const r = await post(u); toast(r.msg || (r.ok ? 'تم ✓' : 'خطأ'), 4500); }
+  catch (e) { toast('خطأ: ' + e.message, 5000); }
+  finally { busy = false; document.querySelectorAll('.jobs ~ .row .btn').forEach(b => b.disabled = false); }
+}
 window.addEventListener('resize', fit);
 document.addEventListener('contextmenu', e => { if (!['INPUT'].includes(e.target.tagName)) e.preventDefault(); });
 load();

@@ -38,9 +38,10 @@ def apply(changes):
         d.update(config.city_info(cc, first[0])); d['city_key'] = first[0]
     if changes.get('city_key'):
         d.update(config.city_info(d['country'], changes['city_key'])); d['city_key'] = changes['city_key']
-    for k in ('method', 'hijri_mode', 'lang2', 'mosque_name', 'dua', 'theme', 'printer', 'paper', 'city_name', 'city_ar'):
+    for k in ('method', 'hijri_mode', 'lang2', 'mosque_name', 'dua', 'theme', 'printer', 'paper', 'city_name', 'city_ar',
+              'a4_printer', 'a3_printer'):
         if k in changes: d[k] = changes[k]
-    for k in ('asr', 'hijri_adjust', 'copies'):
+    for k in ('asr', 'hijri_adjust', 'copies', 'a4_copies', 'a3_copies'):
         if k in changes: d[k] = int(changes[k] or 0)
     for k in ('auto_print', 'morocco_plus1'):
         if k in changes: d[k] = bool(changes[k])
@@ -49,6 +50,7 @@ def apply(changes):
     if d['country'] != 'MA' and d['hijri_mode'] == 'morocco': d['hijri_mode'] = 'ummalqura'
     if d['country'] != 'MA' and d['method'] == 'MOROCCO': d['method'] = calc.COUNTRY_METHOD.get(d['country'], 'MWL')
     d['copies'] = max(1, d.get('copies') or 1)
+    for k in ('a4_copies', 'a3_copies'): d[k] = max(0, min(50, int(d.get(k) or 0)))
     return d
 
 
@@ -119,8 +121,8 @@ class H(BaseHTTPRequestHandler):
                 return self.send(200, dict(ok=True, cfg=d))
             if self.path == '/api/save':
                 d = apply(data)
-                if d.get('auto_print') and not d.get('printer'):
-                    return self.send(200, dict(ok=False, msg='اختر الطابعة أولاً لتفعيل الطباعة التلقائية'))
+                if d.get('auto_print') and not config.print_jobs(d):
+                    return self.send(200, dict(ok=False, msg='حدّد عدد الأوراق والطابعة (A4 أو A3) لتفعيل الطباعة التلقائية'))
                 config.save(d); STATE['cfg'] = json.loads(json.dumps(d))
                 want = bool(d.get('auto_print'))
                 if want != core.task_on():
@@ -129,13 +131,12 @@ class H(BaseHTTPRequestHandler):
                 return self.send(200, dict(ok=True, msg='تم الحفظ ✓', task=core.task_on()))
             if self.path in ('/api/print', '/api/pdf'):
                 d = draft()
-                png, pdf = core.render_files(model(d), d, d.get('theme'))
                 if self.path == '/api/pdf':
-                    core.open_path(pdf); return self.send(200, dict(ok=True, msg='تم فتح ملف PDF ✓'))
-                if not d.get('printer'):
-                    return self.send(200, dict(ok=False, msg='اختر الطابعة أولاً'))
-                core.print_sheet(png, pdf, d)
-                return self.send(200, dict(ok=True, msg='أُرسلت الورقة إلى الطابعة ✓'))
+                    paper = 'A3' if (int(d.get('a3_copies') or 0) and not int(d.get('a4_copies') or 0)) else 'A4'
+                    png, pdf = core.render_files(model(d), d, d.get('theme'), paper=paper)
+                    core.open_path(pdf); return self.send(200, dict(ok=True, msg='تم فتح ملف PDF (%s) ✓' % paper))
+                summary = core.print_all(model(d), d)
+                return self.send(200, dict(ok=True, msg='أُرسلت إلى الطابعة: ' + summary + ' ✓'))
             if self.path == '/api/folder':
                 core.open_path(paths.OUT); return self.send(200, dict(ok=True))
             self.send(404, {'error': 'not found'})

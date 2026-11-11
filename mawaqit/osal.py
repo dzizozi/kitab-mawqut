@@ -57,6 +57,7 @@ def browser():
 
 
 def screenshot(html_path, png_path, scale, tmpdir):
+    os.makedirs(tmpdir, exist_ok=True)
     kind, exe = browser()
     url = 'file://' + ('/' if WIN else '') + os.path.abspath(html_path).replace('\\', '/')
     if kind == 'chromium':
@@ -112,13 +113,19 @@ $pd = New-Object System.Drawing.Printing.PrintDocument
 if ('%s' -ne '') { $pd.PrinterSettings.PrinterName = '%s' }
 $pd.PrinterSettings.Copies = %d
 $pd.DocumentName = 'Al-Kitab Al-Mawqut'
+$pd.OriginAtMargins = $false
+$pd.DefaultPageSettings.Landscape = $false
 $pd.DefaultPageSettings.Margins = New-Object System.Drawing.Printing.Margins(0,0,0,0)
-foreach ($s in $pd.PrinterSettings.PaperSizes) { if ($s.Kind -eq '%s') { $pd.DefaultPageSettings.PaperSize = $s } }
+foreach ($s in $pd.PrinterSettings.PaperSizes) { if ($s.Kind -eq '%s') { $pd.DefaultPageSettings.PaperSize = $s; $pd.PrinterSettings.DefaultPageSettings.PaperSize = $s } }
 $pd.add_PrintPage({ param($s,$e)
-  $b = $e.PageBounds; $r = [Math]::Min($b.Width / $img.Width, $b.Height / $img.Height)
+  # Graphics origin = top-left of the PRINTABLE area (printers cannot print to the paper edge):
+  # fit the whole sheet inside the printable area, centred, aspect ratio kept.
+  $v = $e.Graphics.VisibleClipBounds
+  $r = [Math]::Min($v.Width / $img.Width, $v.Height / $img.Height)
   $w = $img.Width * $r; $h = $img.Height * $r
   $e.Graphics.InterpolationMode = 'HighQualityBicubic'
-  $e.Graphics.DrawImage($img, [single](($b.Width - $w) / 2), [single](($b.Height - $h) / 2), [single]$w, [single]$h) })
+  $e.Graphics.DrawImage($img, [single]($v.X + ($v.Width - $w) / 2), [single]($v.Y + ($v.Height - $h) / 2), [single]$w, [single]$h)
+  $e.HasMorePages = $false })
 %s
 $pd.Print(); $img.Dispose(); 'PRINT-OK'
 } catch { 'PRINT-ERR ' + $_.Exception.Message }
