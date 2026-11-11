@@ -58,6 +58,10 @@ main { display: grid; grid-template-rows: auto 1fr; gap: var(--gap); min-height:
 .ico { width: 19px; height: 19px; flex: none; fill: var(--icofill); stroke: var(--ico); stroke-width: var(--icow); stroke-linecap: round; stroke-linejoin: round }
 h1 .ico { width: 28px; height: 28px }
 .hide { display: none !important }
+.vtabs { position: absolute; top: 10px; inset-inline-start: 10px; z-index: 3; display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: rgba(255,255,255,.7); backdrop-filter: blur(10px); box-shadow: 0 2px 10px rgba(0,0,0,.08) }
+.vtabs button { border: 0; background: transparent; padding: 6px 12px; border-radius: 9px; font: inherit; font-size: 12px; cursor: pointer; color: inherit }
+.vtabs button.on { background: var(--accent); color: #fff; font-weight: 700 }
+.hz-sel { font-size: 12px }
 .jobs { display: grid; gap: 6px; margin-top: 8px }
 .job { display: grid; grid-template-columns: 34px 44px 62px 1fr; gap: 6px; align-items: center; font-size: 12px }
 .job b { font-family: 'Segoe UI', 'UILatin'; font-size: 14px; color: var(--accent) } .job span { opacity: .75 }
@@ -161,12 +165,24 @@ body[data-theme=y2k] h1 { background: linear-gradient(90deg,#ff2fb8,#7a00ff,#00b
   <label class="switch" style="margin-top:8px"><span><b>طباعة تلقائية</b> عند دخول كل شهر هجري</span><input type="checkbox" id="auto_print"></label>
   <div class="status" id="taskst"></div>
  </div>
+ <div class="panel"><h2><svg class="ico"><use href="#i-moon"/></svg>ورقة حزب القراءة</h2>
+  <div class="status">حزب بعد صلاة الصبح وحزب بعد صلاة العشاء، بنفس التصميم. تُطبع بالأعداد والطابعات المحدّدة أعلاه.</div>
+  <label>التاريخ</label><input type="date" id="hizb_date">
+  <label>بعد صلاة الصبح</label><select id="hizb_fajr" class="hz-sel"></select>
+  <label>بعد صلاة العشاء</label><select id="hizb_isha" class="hz-sel"></select>
+  <div class="row" style="margin-top:10px">
+   <button class="btn sec" onclick="hizbNext()" title="اليوم التالي والحزبان التاليان">اليوم التالي ⟵</button>
+   <button class="btn sec" onclick="setView('hizb')">معاينة</button></div>
+  <div class="row" style="margin-top:6px">
+   <button class="btn" onclick="act('/api/hizb-print', hizbData())"><svg class="ico"><use href="#i-print"/></svg>اطبع ورقة الحزب</button>
+   <button class="btn sec" onclick="act('/api/hizb-pdf', hizbData())"><svg class="ico"><use href="#i-file"/></svg>PDF</button></div>
+ </div>
  <button class="btn" onclick="save()"><svg class="ico"><use href="#i-save"/></svg>حفظ الإعدادات</button>
 </aside>
 
 <main>
  <div class="panel"><h2><svg class="ico"><use href="#i-brush"/></svg>التصميم</h2><div class="gallery" id="gallery"></div></div>
- <div class="panel preview" id="pv"><iframe class="frame" id="frame"></iframe></div>
+ <div class="panel preview" id="pv"><div class="vtabs"><button id="v_month" onclick="setView('month')">ورقة المواقيت</button><button id="v_hizb" onclick="setView('hizb')">ورقة الحزب</button></div><iframe class="frame" id="frame"></iframe></div>
 </main>
 <div id="toast"></div>
 
@@ -179,10 +195,24 @@ function toast(t, ms) { const e = $('toast'); e.textContent = t; e.classList.add
 function fit() { const pv = $('pv'), f = $('frame'); const s = Math.min((pv.clientHeight - 28) / 1123, (pv.clientWidth - 28) / 794);
   f.style.transform = 'scale(' + s + ')'; f.style.marginBottom = (-(1 - s) * 1123) + 'px'; f.style.marginLeft = f.style.marginRight = (-(1 - s) * 794 / 2) + 'px';
   document.querySelectorAll('.th .mini').forEach(m => { m.querySelector('iframe').style.transform = 'scale(' + (m.clientWidth / 794) + ')'; }); }
+let VIEW = 'month';
+function sheetUrl() { return VIEW === 'hizb' ? '/hizb-sheet' : '/sheet'; }
 function refresh(all) {
   const t = Date.now();
-  $('frame').src = '/sheet?theme=' + S.cfg.theme + '&t=' + t;
-  if (all) document.querySelectorAll('.th iframe').forEach(f => f.src = '/sheet?theme=' + f.dataset.k + '&t=' + t);
+  $('frame').src = sheetUrl() + '?theme=' + S.cfg.theme + '&t=' + t;
+  if (all) document.querySelectorAll('.th iframe').forEach(f => f.src = sheetUrl() + '?theme=' + f.dataset.k + '&t=' + t);
+}
+function setView(v) { VIEW = v; $('v_month').classList.toggle('on', v === 'month'); $('v_hizb').classList.toggle('on', v === 'hizb'); refresh(true); }
+const today = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10); };
+const hnext = (n, k = 1) => ((+n - 1 + k) % 60) + 1;
+function hizbData() { return {hizb_date: $('hizb_date').value || today(), hizb_fajr: +$('hizb_fajr').value, hizb_isha: +$('hizb_isha').value}; }
+async function hizbChange(extra) { const r = await post('/api/draft', Object.assign(hizbData(), extra || {})); if (r.ok) S.cfg = r.cfg; setView('hizb'); }
+function hizbNext() {
+  const d = new Date(($('hizb_date').value || today()) + 'T12:00:00'); d.setDate(d.getDate() + 1);
+  $('hizb_date').value = d.toISOString().slice(0, 10);
+  $('hizb_fajr').value = hnext($('hizb_isha').value);          // continue the khatma: 1-2, 3-4 … 59-60, 1-2
+  $('hizb_isha').value = hnext($('hizb_fajr').value);
+  hizbChange();
 }
 function setTheme(k) { document.body.dataset.theme = k; S.cfg.theme = k;
   document.querySelectorAll('.th').forEach(e => e.classList.toggle('on', e.dataset.k === k)); post('/api/draft', {theme: k}); refresh(false); }
@@ -234,7 +264,15 @@ async function load() {
   $('gallery').innerHTML = S.themes.map(([k, ar, en]) => `<div class="th" data-k="${k}" onclick="setTheme('${k}')">
      <div class="mini"><iframe data-k="${k}" loading="lazy" tabindex="-1"></iframe></div><span>${ar}</span><small>${en}</small></div>`).join('');
   fillCities(S.cities); monthUI(S.month); showForm();
-  setTheme(S.cfg.theme || 'glass'); refresh(true); fit();
+  fetch('/api/ahzab').then(r => r.json()).then(list => {
+    const opts = list.map(([n, sura, w]) => `<option value="${n}">الحزب ${n} — ${w.split(' ').slice(0, 4).join(' ')} (${sura})</option>`).join('');
+    $('hizb_fajr').innerHTML = $('hizb_isha').innerHTML = opts;
+    $('hizb_fajr').value = S.cfg.hizb_fajr || 1; $('hizb_isha').value = S.cfg.hizb_isha || hnext(S.cfg.hizb_fajr || 1); });
+  $('hizb_date').value = today();
+  $('hizb_date').onchange = () => hizbChange();
+  $('hizb_fajr').onchange = () => { $('hizb_isha').value = hnext($('hizb_fajr').value); hizbChange(); };
+  $('hizb_isha').onchange = () => hizbChange();
+  setTheme(S.cfg.theme || 'glass'); setView('month'); fit();
   fetch('/api/printers').then(r => r.json()).then(ps => {
     for (const k of ['a4','a3']) {
       $(k + '_printer').innerHTML = '<option value="">— الطابعة —</option>' + ps.map(p => `<option>${p}</option>`).join('');
@@ -256,13 +294,13 @@ async function load() {
 async function setImage(data) { const r = await post('/api/image', {data}); S.cfg = r.cfg; showForm(); refresh(true); }
 async function save() { const r = await post('/api/save', {}); if (r.task !== undefined) S.task = r.task; taskUI(); toast(r.msg || (r.ok ? 'تم ✓' : 'خطأ'), 3500); }
 let busy = false;
-async function act(u) {
+async function act(u, data) {
   if (busy) return; busy = true;
-  document.querySelectorAll('.jobs ~ .row .btn').forEach(b => b.disabled = true);
+  const btns = document.querySelectorAll('aside .row .btn'); btns.forEach(b => b.disabled = true);
   toast(u.includes('print') ? 'جارٍ تجهيز الورقة وإرسالها للطابعة…' : 'جارٍ تجهيز ملف PDF…', 30000);
-  try { const r = await post(u); toast(r.msg || (r.ok ? 'تم ✓' : 'خطأ'), 4500); }
+  try { const r = await post(u, data); toast(r.msg || (r.ok ? 'تم ✓' : 'خطأ'), 4500); }
   catch (e) { toast('خطأ: ' + e.message, 5000); }
-  finally { busy = false; document.querySelectorAll('.jobs ~ .row .btn').forEach(b => b.disabled = false); }
+  finally { busy = false; btns.forEach(b => b.disabled = false); }
 }
 window.addEventListener('resize', fit);
 document.addEventListener('contextmenu', e => { if (!['INPUT'].includes(e.target.tagName)) e.preventDefault(); });

@@ -8,7 +8,7 @@ DEFAULTS = dict(
     tune=dict(fajr=0, sunrise=0, dhuhr=0, asr=0, maghrib=0, isha=0),
     lang2='fr', mosque_name='', mosque_image='', dua='',
     theme='glass', printer='', paper='A4', copies=1, auto_print=False,
-    a4_copies=1, a4_printer='', a3_copies=0, a3_printer='',
+    a4_copies=1, a4_printer='', a3_copies=0, a3_printer='', hizb_fajr=1, hizb_isha=2,
 )
 
 

@@ -140,3 +140,70 @@ def render_html(M, cfg, theme=None, font_base='/fonts/'):
  </div>
  <div class="foot"><span>{e(source)}{foot_note}</span><span>{e(source_r)} · {dt.date.today().strftime('%d/%m/%Y')}</span></div>
 </div></body></html>'''
+
+
+HIZB_CSS = """
+.hz-meta { justify-content: center; gap: 18px; font-size: 15px; padding: 6px 10px }
+.hz { flex: 1 1 auto !important; display: grid; grid-template-rows: 1fr 1fr; gap: 14px; min-height: 0 }
+.hz .card { display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 18px 30px; gap: 10px }
+.hz .when { display: flex; align-items: center; gap: 12px; font-size: 22px; font-weight: 700 }
+.hz .when small { font-family: 'Segoe UI', 'UILatin'; font-size: 13px; font-weight: 600; opacity: .7; letter-spacing: .5px }
+.hz .when .tm { font-family: 'Segoe UI', 'UILatin'; font-size: 15px; padding: 2px 10px; border-radius: 999px; border: 1px solid currentColor; opacity: .85 }
+.hz .num { font-family: 'Noto Kufi Arabic'; font-weight: 800; font-size: 66px; line-height: 1.15 }
+.hz .num small { display: block; margin-top: 6px; font-family: 'Segoe UI', 'UILatin'; font-size: 15px; font-weight: 600; letter-spacing: 1px; opacity: .7 }
+.hz .words { font-family: 'Amiri'; font-weight: 700; font-size: 38px; line-height: 1.6; max-width: 92% }
+.hz .words::before { content: '\\FD3F  '; opacity: .55 } .hz .words::after { content: '  \\FD3E'; opacity: .55 }
+.hz .where { font-size: 15px; opacity: .8 }
+.hz-dua { text-align: center; font-family: 'Amiri'; font-size: 17px; padding: 4px 10px }
+"""
+
+
+def render_hizb_html(H, cfg, theme=None, font_base='/fonts/'):
+    """One-page sheet: today's hizb after Sobh and after Isha, with the date and the opening words."""
+    theme = theme or cfg.get('theme', 'glass')
+    L = 1 if cfg.get('lang2', 'fr') == 'fr' else 2
+    l2 = 'fr' if L == 1 else 'en'
+    e = html.escape
+    d = H['date']
+    G_AR = greg_ar(cfg['country'])
+    hijri = ('%d %s %d هـ' % (H['hday'], HIJRI['ar'][H['mois'] - 1], H['annee'])) if H['hday'] else ''
+    hijri2 = ('%d %s %d' % (H['hday'], HIJRI[l2][H['mois'] - 1], H['annee'])) if H['hday'] else ''
+    mosque = (cfg.get('mosque_name') or '').strip()
+    img = image_data(cfg.get('mosque_image'))
+    emblem = ('<div class="emblem photo"><img src="%s"></div>' % img) if img else '<div class="emblem">%s</div>' % CRESCENT
+    city_ar = cfg.get('city_ar') or cfg.get('city_name', '')
+    if mosque:
+        left = ('<div class="h-left has-mosque"><div class="h-title">%s</div><div class="h-sub2">%s %s · %s</div></div>'
+                % (e(mosque), UI['in_city'][0], e(city_ar), e(cfg.get('city_name', ''))))
+    else:
+        left = ('<div class="h-left"><div class="h-title">%s %s</div><div class="h-sub">%s</div></div>'
+                % (UI['in_city'][0], e(city_ar), e(cfg.get('city_name', ''))))
+
+    def card(h, label, label2, t):
+        where = ('أول ' if h['start_of_sura'] else 'من ') + 'سورة %s' % h['sura_name']
+        tm = '<span class="tm">%s</span>' % t if t else ''
+        return ('<div class="panel card"><div class="when">%s <small>%s</small>%s</div>'
+                '<div class="num month">الحزب %d<small>Hizb %d / 60</small></div>'
+                '<div class="words">%s</div><div class="where">%s</div></div>'
+                % (label, label2, tm, h['n'], h['n'], e(h['words']), e(where)))
+
+    t = H['times'] or [None] * 6
+    return f'''<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>حزب اليوم {d.isoformat()}</title>
+<style>{font_css(font_base)}{themes.css_for(theme)}{HIZB_CSS}</style></head><body class="t-{theme}">{DEFS}{BGDECO}
+<div class="page">
+ <div class="panel head">
+  <div class="h-right"><div class="h-title">حزب اليوم</div><div class="h-sub">{'Hizb du jour' if L == 1 else "Today's hizb"}</div></div>
+  <div class="h-mid">{emblem}<div class="month">{DAYS['ar'][d.weekday()]}</div>
+   <div class="month-fr">{DAYS[l2][d.weekday()]} {fmt_date(d)}</div></div>
+  {left}
+  {MOSQUE}
+ </div>
+ <div class="meta hz-meta"><span><b>{e(hijri)}</b></span><span>{d.day} {G_AR[d.month - 1]} {d.year}</span>
+  <span class="fr"><bdi dir="ltr">{e(hijri2)}</bdi></span></div>
+ <div class="hz">
+  {card(H['fajr'], 'بعد صلاة الصبح', 'Après Fajr' if L == 1 else 'After Fajr', t[0])}
+  {card(H['isha'], 'بعد صلاة العشاء', "Après Ichaa" if L == 1 else 'After Isha', t[5])}
+ </div>
+ <div class="hz-dua dua">{e(cfg.get('dua', '') or 'خيركم من تعلّم القرآن وعلّمه')}</div>
+ <div class="foot"><span>تقسيم القرآن الكريم إلى ستين حزباً · النص القرآني: مشروع تنزيل tanzil.net</span><span>{fmt_date(d)}</span></div>
+</div></body></html>'''

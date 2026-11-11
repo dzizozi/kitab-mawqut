@@ -113,14 +113,16 @@ import threading
 _render_lock = threading.Lock()
 
 
-def render_files(M, cfg, theme=None, pdf=True, paper=None):
-    """Sheet -> PNG (+PDF). Serialised and atomic: two clicks on «print» can no longer collide."""
+def render_files(M, cfg, theme=None, pdf=True, paper=None, sheet='month'):
+    """Sheet -> PNG (+PDF). Serialised and atomic: two clicks on «print» can no longer collide.
+    sheet='month' (prayer times, M = month model) or 'hizb' (daily reading, M = ahzab.day_model)."""
     from PIL import Image
     theme = theme or cfg.get('theme', 'glass')
     a3 = (paper or cfg.get('paper')) == 'A3'
-    base = os.path.join(paths.OUT, 'mawaqit-%s-%s%s' % (M['key'], theme, '-A3' if a3 else ''))
+    base = os.path.join(paths.OUT, '%s-%s-%s%s' % ('hizb' if sheet == 'hizb' else 'mawaqit', M['key'], theme, '-A3' if a3 else ''))
     with _render_lock:
-        html = render.render_html(M, cfg, theme, font_base=render.file_url(paths.FONTS) + '/')
+        fn = render.render_hizb_html if sheet == 'hizb' else render.render_html
+        html = fn(M, cfg, theme, font_base=render.file_url(paths.FONTS) + '/')
         open(base + '.html', 'w', encoding='utf-8').write(html)
         tmp = tempfile.mkdtemp(prefix='render-', dir=paths.CACHE)
         tmp_png = os.path.join(tmp, 'sheet.png')
@@ -150,23 +152,23 @@ def print_sheet(png, pdf, cfg, to_file=None):
 _print_lock = threading.Lock()
 
 
-def print_all(M, cfg):
+def print_all(M, cfg, sheet='month'):
     """Print every configured size (e.g. 2 x A3 + 3 x A4). Returns a short Arabic summary."""
     if not _print_lock.acquire(blocking=False):
         raise RuntimeError('الطباعة جارية، انتظر قليلاً')
     try:
-        return _print_all(M, cfg)
+        return _print_all(M, cfg, sheet)
     finally:
         _print_lock.release()
 
 
-def _print_all(M, cfg):
+def _print_all(M, cfg, sheet='month'):
     jobs = config.print_jobs(cfg)
     if not jobs:
         raise RuntimeError('اختر عدد الأوراق والطابعة لحجم A4 أو A3')
     done = []
     for paper, copies, printer in jobs:
-        png, pdf = render_files(M, cfg, paper=paper)
+        png, pdf = render_files(M, cfg, paper=paper, sheet=sheet)
         print_sheet(png, pdf, dict(cfg, paper=paper, copies=copies, printer=printer))
         done.append('%d × %s' % (copies, paper))
     return ' + '.join(done)

@@ -1,7 +1,7 @@
 """Desktop window (pywebview / Edge WebView2 – Chromium) + local API. No external browser, no console."""
 import json, os, threading, socket, urllib.parse, base64, io, time, datetime as dt
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
-from . import paths, config, core, render, themes, calc
+from . import paths, config, core, render, themes, calc, ahzab
 
 _lock = threading.Lock()
 STATE = dict(cfg=None, draft=None, model=None, model_sig=None)
@@ -45,6 +45,9 @@ def apply(changes):
         if k in changes: d[k] = int(changes[k] or 0)
     for k in ('auto_print', 'morocco_plus1'):
         if k in changes: d[k] = bool(changes[k])
+    for k in ('hizb_fajr', 'hizb_isha'):
+        if k in changes: d[k] = max(1, min(60, int(changes[k] or 1)))
+    if 'hizb_date' in changes: d['hizb_date'] = changes['hizb_date'] or ''
     if 'tune' in changes: d['tune'] = {k: int(v or 0) for k, v in changes['tune'].items()}
     if 'mosque_image' in changes: d['mosque_image'] = changes['mosque_image']
     if d['country'] != 'MA' and d['hijri_mode'] == 'morocco': d['hijri_mode'] = 'ummalqura'
@@ -52,6 +55,11 @@ def apply(changes):
     d['copies'] = max(1, d.get('copies') or 1)
     for k in ('a4_copies', 'a3_copies'): d[k] = max(0, min(50, int(d.get(k) or 0)))
     return d
+
+
+def hizb_model(d):
+    day = dt.date.fromisoformat(d.get('hizb_date') or dt.date.today().isoformat())
+    return ahzab.day_model(d, day, d.get('hizb_fajr') or 1, d.get('hizb_isha') or ahzab.nxt(d.get('hizb_fajr') or 1))
 
 
 def save_image(data_url):
@@ -93,6 +101,11 @@ class H(BaseHTTPRequestHandler):
             if u.path == '/sheet':
                 d = draft()
                 return self.send(200, render.render_html(model(d), d, q.get('theme')), 'text/html; charset=utf-8')
+            if u.path == '/hizb-sheet':
+                d = draft()
+                return self.send(200, render.render_hizb_html(hizb_model(d), d, q.get('theme')), 'text/html; charset=utf-8')
+            if u.path == '/api/ahzab':
+                return self.send(200, ahzab.choices())
             if u.path == '/api/state':
                 d = draft()
                 return self.send(200, dict(
@@ -137,6 +150,16 @@ class H(BaseHTTPRequestHandler):
                     core.open_path(pdf); return self.send(200, dict(ok=True, msg='تم فتح ملف PDF (%s) ✓' % paper))
                 summary = core.print_all(model(d), d)
                 return self.send(200, dict(ok=True, msg='أُرسلت إلى الطابعة: ' + summary + ' ✓'))
+            if self.path in ('/api/hizb-print', '/api/hizb-pdf'):
+                d = apply(data)
+                H = hizb_model(d)
+                saved = config.load(); saved.update(hizb_fajr=d['hizb_fajr'], hizb_isha=d['hizb_isha']); config.save(saved)
+                if self.path == '/api/hizb-pdf':
+                    paper = 'A3' if (int(d.get('a3_copies') or 0) and not int(d.get('a4_copies') or 0)) else 'A4'
+                    png, pdf = core.render_files(H, d, d.get('theme'), paper=paper, sheet='hizb')
+                    core.open_path(pdf); return self.send(200, dict(ok=True, msg='تم فتح ملف PDF (%s) ✓' % paper))
+                summary = core.print_all(H, d, sheet='hizb')
+                return self.send(200, dict(ok=True, msg='أُرسلت ورقة الحزب إلى الطابعة: ' + summary + ' ✓'))
             if self.path == '/api/folder':
                 core.open_path(paths.OUT); return self.send(200, dict(ok=True))
             self.send(404, {'error': 'not found'})
