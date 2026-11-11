@@ -7,3 +7,20 @@ dist/
 *.log
 serve.log
 docs_icon.png
+
+# android app
+android-app/node_modules/
+android-app/www/lib/
+android-app/www/fonts/
+android-app/www/data/
+android-app/www/engine/shared.js
+android-app/gradle.log
+android-app/android/local.properties
+android-app/android/.gradle/
+android-app/android/build/
+android-app/android/app/build/
+android-app/android/capacitor-cordova-android-plugins/build/
+android-app/android/app/src/main/assets/public/
+*.jks
+*.keystore
+alkitab.properties

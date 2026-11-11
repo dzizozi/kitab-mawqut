@@ -4,7 +4,7 @@
 
 ﴿إِنَّ الصَّلَاةَ كَانَتْ عَلَى الْمُؤْمِنِينَ كِتَابًا مَّوْقُوتًا﴾
 
-برنامج مجاني ومفتوح المصدر لأنظمة Windows وmacOS وLinux، يصمّم **ورقة مواقيت الصلاة لشهر هجري كامل** جاهزة للتعليق في المسجد أو البيت، ويطبعها **تلقائياً عند دخول كل شهر هجري**.
+برنامج مجاني ومفتوح المصدر لأنظمة Windows وmacOS وLinux وAndroid، يصمّم **ورقة مواقيت الصلاة لشهر هجري كامل** جاهزة للتعليق في المسجد أو البيت، ويطبعها **تلقائياً عند دخول كل شهر هجري**.
 
 ![البرنامج](docs/app.jpg)
 
@@ -29,6 +29,7 @@
 | Windows 10/11 | `AlKitabAlMawqut-Setup-x.y.z.exe` | شغّله واتبع الخطوات (لا يحتاج صلاحيات المدير). إن ظهر تنبيه SmartScreen: «More info» ثم «Run anyway». |
 | macOS (Apple Silicon M1–M4) | `AlKitabAlMawqut-x.y.z-macOS-arm64.dmg` | افتحه واسحب البرنامج إلى Applications. أول مرة: انقر بزر الفأرة الأيمن على البرنامج ← «Open»، أو من System Settings ← Privacy & Security ← «Open Anyway» (البرنامج غير موثّق لدى Apple). |
 | Linux (x86-64) | `AlKitabAlMawqut-x.y.z-linux-x86_64.tar.gz` | فكّ الضغط ثم شغّل `./AlKitabAlMawqut/install.sh` ليظهر في قائمة البرامج. |
+| Android 7+ | `AlKitabAlMawqut-x.y.z-android.apk` | حمّله في الهاتف وافتحه، واسمح بـ«تثبيت تطبيقات من مصادر غير معروفة» عند الطلب. الطباعة وحفظ PDF من نافذة الطباعة في أندرويد، وتذكير بإشعار عند دخول كل شهر هجري. |
 
 - لتصميم ورقة PDF والطباعة على macOS وLinux يستعمل البرنامج متصفح Chrome أو Chromium أو Edge أو Firefox المثبّت في الجهاز.
 - الطباعة التلقائية: Windows (Task Scheduler)، macOS (launchd)، Linux (systemd أو cron) — كلها في الخلفية ودون أي نافذة.
@@ -44,6 +45,9 @@ Téléchargement : page **Releases**.
 ## English
 Free, open-source desktop app (Windows, macOS, Linux) that designs a **monthly (Hijri) prayer-time sheet** in 8 visual styles for any country (22 calculation methods, Hanafi/Shafi'i Asr, Umm al-Qura or local moon-sighting calendar), with your mosque's name and logo, and can print it **automatically when each Hijri month begins**. Morocco uses the official Ministry of Habous timetables.
 Download the installer from **Releases**.
+
+## Android
+The Android app (`android-app/`, Capacitor) is a JavaScript port of the same engine: identical times (verified 432/432 against the Python engine), same 8 designs exported from `mawaqit/themes.py` by `tools/export_web.py`. Google Play publishing guide: [docs/google-play.md](docs/google-play.md). Privacy policy: [docs/privacy-policy.md](docs/privacy-policy.md).
 
 ## Development
 ```

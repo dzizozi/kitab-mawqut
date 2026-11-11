@@ -1,0 +1,16 @@
+{
+  "name": "al-kitab-al-mawqut-android",
+  "version": "1.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "sync": "node scripts/copy-libs.mjs && npx cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.6.0",
+    "@capacitor/cli": "^8.6.0",
+    "@capacitor/core": "^8.6.0",
+    "@capacitor/local-notifications": "^8.3.1",
+    "astronomy-engine": "^2.1.19"
+  }
+}

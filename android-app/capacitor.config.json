@@ -1,0 +1,17 @@
+{
+  "appId": "io.github.dzizozi.alkitab",
+  "appName": "الكتاب الموقوت",
+  "webDir": "www",
+  "android": {
+    "backgroundColor": "#e6f2ee"
+  },
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": false
+    },
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_moon",
+      "iconColor": "#0f5e4f"
+    }
+  }
+}
