@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>الكتاب الموقوت</title>
+<style>
+@font-face{font-family:'Noto Kufi Arabic';src:url('/fonts/NotoKufiArabic-Regular.ttf');font-weight:400}
+@font-face{font-family:'Noto Kufi Arabic';src:url('/fonts/NotoKufiArabic-Bold.ttf');font-weight:700}
+@font-face{font-family:'Noto Kufi Arabic';src:url('/fonts/NotoKufiArabic-Bold.ttf');font-weight:800}
+@font-face{font-family:'Amiri';src:url('/fonts/Amiri-Regular.ttf');font-weight:400}
+@font-face{font-family:'Amiri';src:url('/fonts/Amiri-Bold.ttf');font-weight:700}
+@font-face{font-family:'Noto Sans Arabic';src:url('/fonts/NotoSansArabic-Regular.ttf');font-weight:400}
+@font-face{font-family:'Noto Sans Arabic';src:url('/fonts/NotoSansArabic-Bold.ttf');font-weight:700}
+* { box-sizing: border-box; margin: 0; padding: 0 }
+body { font-family: var(--font); background: var(--bg); color: var(--fg); height: 100vh; overflow: hidden; user-select: none;
+  display: grid; grid-template-columns: 360px 1fr; gap: var(--gap); padding: var(--gap); transition: background .3s }
+.panel { background: var(--panel); border: var(--border); border-radius: var(--radius); box-shadow: var(--shadow);
+  backdrop-filter: var(--blur); padding: 14px 16px }
+aside { display: flex; flex-direction: column; gap: var(--gap); overflow-y: auto; padding: 2px 4px 2px 2px }
+aside::-webkit-scrollbar { width: 6px } aside::-webkit-scrollbar-thumb { background: rgba(0,0,0,.2); border-radius: 3px }
+h1 { font-size: 21px; font-weight: 800; display: flex; gap: 10px; align-items: center; color: var(--accent) }
+h1 small { font-size: 10px; opacity: .6; font-weight: 600; margin-right: auto; font-family: 'Segoe UI' }
+h2 { font-size: 13.5px; font-weight: 700; margin-bottom: 6px; display: flex; gap: 8px; align-items: center }
+label { display: block; font-size: 11.5px; margin: 8px 0 3px; opacity: .8 }
+select, input[type=text], input[type=number], input[type=search] { width: 100%; font: inherit; font-size: 13px; padding: 7px 10px; color: var(--fg);
+  background: var(--field); border: var(--fborder); border-radius: calc(var(--radius) * .5); outline: none }
+input[type=number] { padding: 6px 4px; text-align: center }
+.btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; font: inherit; font-weight: 700; font-size: 13.5px;
+  padding: 9px; cursor: pointer; border: var(--bborder); border-radius: var(--bradius); background: var(--btn); color: var(--btnfg);
+  box-shadow: var(--bshadow); transition: transform .1s, filter .15s }
+.btn:hover { filter: brightness(1.07) } .btn:active { transform: translate(1px, 2px) }
+.btn.sec { background: var(--btn2); color: var(--btn2fg) }
+.btn.small { width: auto; padding: 6px 12px; font-size: 12px }
+.row { display: flex; gap: 8px; align-items: end } .row > * { flex: 1 }
+.switch { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12.5px; padding: 6px 0; cursor: pointer }
+.switch input { width: 18px; height: 18px; accent-color: var(--accent); flex: none }
+.status { font-size: 11.5px; line-height: 1.7; opacity: .9 } .status b { color: var(--accent) }
+details summary { cursor: pointer; font-size: 12px; font-weight: 700; margin-top: 10px; opacity: .85 }
+.tune { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; margin-top: 6px }
+.tune label { text-align: center; margin: 0 0 2px; font-size: 10.5px }
+.imgrow { display: flex; gap: 10px; align-items: center; margin-top: 8px }
+.imgrow .ph { width: 54px; height: 54px; border-radius: 50%; background: var(--field); border: var(--fborder); flex: none;
+  display: grid; place-items: center; overflow: hidden } .imgrow .ph img { width: 100%; height: 100%; object-fit: cover }
+#toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%) translateY(30px); opacity: 0; transition: .25s;
+  background: var(--btn); color: var(--btnfg); padding: 10px 22px; border-radius: 30px; font-weight: 700; font-size: 13px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.25); z-index: 9; pointer-events: none; border: var(--bborder) }
+#toast.on { opacity: 1; transform: translateX(-50%) }
+main { display: grid; grid-template-rows: auto 1fr; gap: var(--gap); min-height: 0 }
+.gallery { display: grid; grid-template-columns: repeat(8, 1fr); gap: 10px }
+.th { cursor: pointer; text-align: center; padding: 6px; border-radius: calc(var(--radius) * .6); border: 2px solid transparent; transition: .15s }
+.th .mini { width: 100%; aspect-ratio: 794/1123; overflow: hidden; border-radius: 6px; position: relative; background: #fff;
+  box-shadow: 0 2px 8px rgba(0,0,0,.15) }
+.th iframe { position: absolute; top: 0; right: 0; width: 794px; height: 1123px; border: 0; transform-origin: top right; pointer-events: none }
+.th span { display: block; font-size: 11.5px; font-weight: 700; margin-top: 5px } .th small { font-size: 10px; opacity: .65; font-family: 'Segoe UI' }
+.th.on { border-color: var(--accent); background: var(--sel) }
+.preview { min-height: 0; display: flex; justify-content: center; align-items: flex-start; overflow: hidden; position: relative }
+.frame { width: 794px; height: 1123px; transform-origin: top center; border: 0; background: #fff; box-shadow: 0 10px 40px rgba(0,0,0,.25); flex: none }
+.busy::after { content: ''; position: absolute; inset: 0; background: rgba(255,255,255,.35) }
+.ico { width: 19px; height: 19px; flex: none; fill: var(--icofill); stroke: var(--ico); stroke-width: var(--icow); stroke-linecap: round; stroke-linejoin: round }
+h1 .ico { width: 28px; height: 28px }
+.hide { display: none !important }
+
+body[data-theme=glass] { --font: 'Noto Kufi Arabic', 'Segoe UI'; --bg: linear-gradient(140deg,#cdeee3,#dfe5fb 50%,#f8e7cf); --fg: #17324a;
+  --panel: rgba(255,255,255,.45); --border: 1px solid rgba(255,255,255,.8); --radius: 22px; --shadow: 0 8px 30px rgba(30,70,100,.15);
+  --blur: blur(16px); --accent: #0f5e4f; --field: rgba(255,255,255,.6); --fborder: 1px solid rgba(255,255,255,.9);
+  --btn: linear-gradient(180deg,#14806a,#0d5c4e); --btnfg: #fff; --bborder: 1px solid rgba(255,255,255,.4); --bradius: 14px; --bshadow: 0 6px 16px rgba(13,92,78,.3);
+  --btn2: rgba(255,255,255,.6); --btn2fg: #0f5e4f; --sel: rgba(255,255,255,.5); --ico: currentColor; --icofill: none; --icow: 1.8; --gap: 14px }
+body[data-theme=brutal] { --font: 'Noto Kufi Arabic', 'Segoe UI'; --bg: #fff4d6; --fg: #000; --panel: #fff; --border: 3px solid #000; --radius: 10px;
+  --shadow: 6px 6px 0 #000; --blur: none; --accent: #000; --field: #fff; --fborder: 2px solid #000; --btn: #a3e635; --btnfg: #000;
+  --bborder: 3px solid #000; --bradius: 8px; --bshadow: 4px 4px 0 #000; --btn2: #ff90e8; --btn2fg: #000; --sel: #ffd43b;
+  --ico: #000; --icofill: none; --icow: 2.8; --gap: 16px }
+body[data-theme=brutal] h1 { background: #ffd43b; border: 3px solid #000; padding: 4px 10px; box-shadow: 3px 3px 0 #000 }
+body[data-theme=bento] { --font: 'Segoe UI', 'Noto Sans Arabic'; --bg: #eceef2; --fg: #1c1c1e; --panel: #fff; --border: 0; --radius: 24px;
+  --shadow: 0 1px 2px rgba(0,0,0,.05); --blur: none; --accent: #0f766e; --field: #f2f2f7; --fborder: 1px solid #f2f2f7; --btn: #1c1c1e; --btnfg: #fff;
+  --bborder: 0; --bradius: 16px; --bshadow: none; --btn2: #fde68a; --btn2fg: #1c1c1e; --sel: #fff; --ico: currentColor; --icofill: none; --icow: 2; --gap: 10px }
+body[data-theme=swiss] { --font: 'Segoe UI', 'Noto Sans Arabic'; --bg: #fff; --fg: #111; --panel: #fff; --border: 0; --radius: 0;
+  --shadow: none; --blur: none; --accent: #e30613; --field: #fff; --fborder: 1px solid #111; --btn: #111; --btnfg: #fff; --bborder: 0;
+  --bradius: 0; --bshadow: none; --btn2: #e30613; --btn2fg: #fff; --sel: #f3f3f3; --ico: currentColor; --icofill: none; --icow: 1.5; --gap: 18px }
+body[data-theme=swiss] .panel { border-top: 5px solid #111 }
+body[data-theme=clay] { --font: 'Noto Kufi Arabic', 'Segoe UI'; --bg: linear-gradient(160deg,#efe6ff,#ffe9f3 60%,#e3f6ff); --fg: #3b2f5c;
+  --panel: #fbf8ff; --border: 0; --radius: 30px; --shadow: 12px 12px 26px rgba(126,96,191,.22), inset -6px -6px 14px rgba(126,96,191,.12), inset 6px 6px 14px #fff;
+  --blur: none; --accent: #6d4bd1; --field: #fff; --fborder: 1px solid #efe8ff; --btn: #a78bfa; --btnfg: #fff; --bborder: 0; --bradius: 22px;
+  --bshadow: 6px 6px 14px rgba(109,75,209,.35), inset -4px -4px 8px rgba(70,30,160,.3), inset 4px 4px 8px rgba(255,255,255,.45);
+  --btn2: #ffb4d2; --btn2fg: #7a1f4a; --sel: #fff; --ico: #6d4bd1; --icofill: #e9ddff; --icow: 1.8; --gap: 16px }
+body[data-theme=clay] select, body[data-theme=clay] input { box-shadow: inset 3px 3px 6px rgba(126,96,191,.15) }
+body[data-theme=skeuo] { --font: 'Amiri', serif; --bg: radial-gradient(circle at 30% 20%,#f7ecd2,#e9d6ad 60%,#cdb07a); --fg: #3b2a14;
+  --panel: linear-gradient(#fffaf0,#f3e5c6); --border: 1px solid #b89a63; --radius: 10px; --shadow: 0 6px 14px rgba(70,40,10,.35), 0 0 0 4px #8b5e2b;
+  --blur: none; --accent: #7a1f1f; --field: linear-gradient(#fff,#f6eedb); --fborder: 1px solid #b89a63; --btn: linear-gradient(#9b2b31,#5a1418);
+  --btnfg: #fff8e6; --bborder: 1px solid #3a0a0d; --bradius: 8px; --bshadow: inset 0 1px 0 rgba(255,255,255,.35), 0 2px 4px rgba(0,0,0,.4);
+  --btn2: linear-gradient(#f5d98b,#c9973f); --btn2fg: #3b2a14; --sel: rgba(212,168,74,.3); --ico: #5a3a17; --icofill: #e9c97a; --icow: 1.4; --gap: 18px }
+body[data-theme=skeuo] { font-size: 15px }
+body[data-theme=material] { --font: 'Segoe UI', 'Noto Sans Arabic'; --bg: #f4fbf8; --fg: #1d1b20; --panel: #fff; --border: 0; --radius: 16px;
+  --shadow: 0 1px 3px rgba(0,0,0,.2), 0 4px 8px 3px rgba(0,0,0,.06); --blur: none; --accent: #006a60; --field: #eef5f3;
+  --fborder: 1px solid #eef5f3; --btn: #006a60; --btnfg: #fff; --bborder: 0; --bradius: 20px; --bshadow: 0 1px 3px rgba(0,0,0,.3);
+  --btn2: #cce8e3; --btn2fg: #00201c; --sel: #cce8e3; --ico: currentColor; --icofill: none; --icow: 2; --gap: 14px }
+body[data-theme=y2k] { --font: 'Noto Kufi Arabic', 'Segoe UI'; --bg: linear-gradient(135deg,#c9f4ff,#f4c6ff 35%,#fff2a8 65%,#b6ffd9); --fg: #2a0a4a;
+  --panel: linear-gradient(180deg,rgba(255,255,255,.9),rgba(230,236,255,.8)); --border: 3px solid #c0c7d6; --radius: 26px;
+  --shadow: 0 0 0 2px #fff inset, 0 8px 22px rgba(122,0,255,.25); --blur: none; --accent: #7a00ff; --field: #fff; --fborder: 2px solid #c0c7d6;
+  --btn: linear-gradient(180deg,#ff8be1,#ff2fb8 50%,#c4008c); --btnfg: #fff; --bborder: 2px solid #fff; --bradius: 30px;
+  --bshadow: 0 4px 12px rgba(255,47,184,.45); --btn2: linear-gradient(180deg,#9be7ff,#00b7ff); --btn2fg: #fff; --sel: rgba(255,255,255,.7);
+  --ico: #7a00ff; --icofill: none; --icow: 2.2; --gap: 14px }
+body[data-theme=y2k] h1 { background: linear-gradient(90deg,#ff2fb8,#7a00ff,#00b7ff); -webkit-background-clip: text; color: transparent }
+</style></head>
+<body data-theme="glass">
+<svg width="0" height="0" style="position:absolute"><defs>
+ <symbol id="i-moon" viewBox="0 0 24 24"><path d="M15 3a9 9 0 1 0 6 15A7.5 7.5 0 1 1 15 3z"/></symbol>
+ <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="9" r="2.5"/></symbol>
+ <symbol id="i-calc" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></symbol>
+ <symbol id="i-mosque" viewBox="0 0 24 24"><path d="M3 21h18M5 21v-8h14v8M12 4c-3 2-5 4-5 7h10c0-3-2-5-5-7zM12 2v2M10 21v-4a2 2 0 0 1 4 0v4"/></symbol>
+ <symbol id="i-brush" viewBox="0 0 24 24"><path d="M4 20c3 0 5-1.5 5-4a3 3 0 0 0-3-3c-2 0-2 2-2 3s0 2-1 4z"/><path d="M9 13l10-10 2 2-10 10"/></symbol>
+ <symbol id="i-print" viewBox="0 0 24 24"><path d="M7 9V3h10v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/></symbol>
+ <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 21h4"/></symbol>
+ <symbol id="i-file" viewBox="0 0 24 24"><path d="M6 3h8l5 5v13H6z"/><path d="M14 3v5h5"/></symbol>
+ <symbol id="i-save" viewBox="0 0 24 24"><path d="M5 3h11l4 4v14H5z"/><path d="M8 3v6h8V3M8 21v-7h8v7"/></symbol>
+ <symbol id="i-img" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 17l-5-5-9 8"/></symbol>
+</defs></svg>
+
+<aside>
+ <div class="panel"><h1><svg class="ico"><use href="#i-moon"/></svg>الكتاب الموقوت<small id="ver"></small></h1>
+  <div class="status" id="month" style="margin-top:6px"></div></div>
+
+ <div class="panel"><h2><svg class="ico"><use href="#i-pin"/></svg>البلد والمدينة</h2>
+  <label>البلد</label><select id="country"></select>
+  <label>المدينة (اكتب للبحث)</label><input type="search" id="city" list="citylist" autocomplete="off"><datalist id="citylist"></datalist>
+  <div class="row"><div><label>الاسم بالعربية على الورقة</label><input type="text" id="city_ar"></div>
+   <div><label>الاسم اللاتيني</label><input type="text" id="city_name"></div></div>
+ </div>
+
+ <div class="panel"><h2><svg class="ico"><use href="#i-calc"/></svg>طريقة الحساب والتقويم</h2>
+  <label>طريقة حساب الأوقات</label><select id="method"></select>
+  <div class="row"><div><label>حساب العصر</label><select id="asr"><option value="1">الجمهور (شافعي، مالكي، حنبلي)</option><option value="2">حنفي</option></select></div></div>
+  <div class="row"><div><label>بداية الشهر الهجري</label><select id="hijri_mode"></select></div>
+   <div style="flex:.45"><label>تعديل (يوم)</label><select id="hijri_adjust"><option>-2</option><option>-1</option><option selected>0</option><option>+1</option><option>+2</option></select></div></div>
+  <label class="switch" id="plus1row"><span>إضافة ساعة (+1) للتوقيت الرسمي GMT</span><input type="checkbox" id="morocco_plus1"></label>
+  <details><summary>تعديل يدوي للأوقات بالدقائق (لمطابقة مسجدك)</summary>
+   <div class="tune" id="tune"></div></details>
+ </div>
+
+ <div class="panel"><h2><svg class="ico"><use href="#i-mosque"/></svg>المسجد والورقة</h2>
+  <label>اسم المسجد (اختياري)</label><input type="text" id="mosque_name" placeholder="مثال: مسجد الحسن الثاني">
+  <div class="imgrow"><div class="ph" id="imgph"><svg class="ico"><use href="#i-img"/></svg></div>
+   <button class="btn sec small" onclick="$('file').click()">صورة المسجد / الشعار</button>
+   <button class="btn sec small" id="imgdel" onclick="setImage('')">حذف</button>
+   <input type="file" id="file" accept="image/*" class="hide"></div>
+  <label>نص أو دعاء أعلى الورقة (اختياري)</label><input type="text" id="dua">
+  <label>اللغة الثانية على الورقة</label><select id="lang2"><option value="fr">Français</option><option value="en">English</option></select>
+ </div>
+
+ <div class="panel"><h2><svg class="ico"><use href="#i-print"/></svg>الطباعة</h2>
+  <label>الطابعة</label><select id="printer"><option value="">جارٍ البحث عن الطابعات…</option></select>
+  <div class="row"><div><label>حجم الورقة</label><select id="paper"><option>A4</option><option>A3</option></select></div>
+   <div><label>عدد النسخ</label><input type="number" id="copies" min="1" max="20"></div></div>
+  <div class="row" style="margin-top:10px">
+   <button class="btn" onclick="act('/api/print')"><svg class="ico"><use href="#i-print"/></svg>اطبع الآن</button>
+   <button class="btn sec" onclick="act('/api/pdf')"><svg class="ico"><use href="#i-file"/></svg>PDF</button></div>
+  <label class="switch" style="margin-top:8px"><span><b>طباعة تلقائية</b> عند دخول كل شهر هجري</span><input type="checkbox" id="auto_print"></label>
+  <div class="status" id="taskst"></div>
+ </div>
+ <button class="btn" onclick="save()"><svg class="ico"><use href="#i-save"/></svg>حفظ الإعدادات</button>
+</aside>
+
+<main>
+ <div class="panel"><h2><svg class="ico"><use href="#i-brush"/></svg>التصميم</h2><div class="gallery" id="gallery"></div></div>
+ <div class="panel preview" id="pv"><iframe class="frame" id="frame"></iframe></div>
+</main>
+<div id="toast"></div>
+
+<script>
+let S = null, cityMap = {}, timer = null;
+const $ = id => document.getElementById(id);
+const post = (u, d) => fetch(u, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(d || {})}).then(r => r.json());
+const PR = [['fajr','الصبح'],['sunrise','الشروق'],['dhuhr','الظهر'],['asr','العصر'],['maghrib','المغرب'],['isha','العشاء']];
+function toast(t, ms) { const e = $('toast'); e.textContent = t; e.classList.add('on'); clearTimeout(e._t); e._t = setTimeout(() => e.classList.remove('on'), ms || 2600); }
+function fit() { const pv = $('pv'), f = $('frame'); const s = Math.min((pv.clientHeight - 28) / 1123, (pv.clientWidth - 28) / 794);
+  f.style.transform = 'scale(' + s + ')'; f.style.marginBottom = (-(1 - s) * 1123) + 'px'; f.style.marginLeft = f.style.marginRight = (-(1 - s) * 794 / 2) + 'px';
+  document.querySelectorAll('.th .mini').forEach(m => { m.querySelector('iframe').style.transform = 'scale(' + (m.clientWidth / 794) + ')'; }); }
+function refresh(all) {
+  const t = Date.now();
+  $('frame').src = '/sheet?theme=' + S.cfg.theme + '&t=' + t;
+  if (all) document.querySelectorAll('.th iframe').forEach(f => f.src = '/sheet?theme=' + f.dataset.k + '&t=' + t);
+}
+function setTheme(k) { document.body.dataset.theme = k; S.cfg.theme = k;
+  document.querySelectorAll('.th').forEach(e => e.classList.toggle('on', e.dataset.k === k)); post('/api/draft', {theme: k}); refresh(false); }
+function fillCities(list) {
+  cityMap = {};
+  $('citylist').innerHTML = list.map(([k, ar, lat]) => { const lab = ar + (lat && lat !== ar ? ' — ' + lat : ''); cityMap[lab] = k; return `<option value="${lab}">`; }).join('');
+}
+function cityLabel() { for (const [lab, k] of Object.entries(cityMap)) if (k === S.cfg.city_key) return lab; return S.cfg.city_ar || S.cfg.city_name; }
+function showForm() {
+  const c = S.cfg;
+  for (const k of ['method','asr','lang2','paper']) $(k).value = String(c[k] ?? '');
+  if ($('printer').options.length > 1) $('printer').value = c.printer || '';
+  $('hijri_adjust').value = c.hijri_adjust > 0 ? '+' + c.hijri_adjust : String(c.hijri_adjust || 0);
+  $('country').value = c.country;
+  $('hijri_mode').innerHTML = (c.country === 'MA' ? '<option value="morocco">إعلان وزارة الأوقاف المغربية</option>' : '') +
+    '<option value="ummalqura">تقويم أم القرى (السعودية)</option><option value="visibility">رؤية الهلال محلياً (حساب فلكي)</option>';
+  $('hijri_mode').value = c.hijri_mode;
+  $('plus1row').classList.toggle('hide', c.country !== 'MA'); $('morocco_plus1').checked = !!c.morocco_plus1;
+  $('city').value = cityLabel(); $('city_ar').value = c.city_ar || ''; $('city_name').value = c.city_name || '';
+  $('mosque_name').value = c.mosque_name || ''; $('dua').value = c.dua || ''; $('copies').value = c.copies || 1;
+  $('auto_print').checked = !!c.auto_print;
+  PR.forEach(([k]) => $('t_' + k).value = (c.tune || {})[k] || 0);
+  $('imgph').innerHTML = c.mosque_image ? `<img src="/sheet-img?${Date.now()}">` : '<svg class="ico"><use href="#i-img"/></svg>';
+  $('imgdel').classList.toggle('hide', !c.mosque_image);
+  taskUI();
+}
+function monthUI(m) { $('month').innerHTML = `الشهر الحالي: <b>${m.name}</b> – بدأ <b>${m.start}</b><br>القادم: <b>${m.next}</b>`; }
+function taskUI() { $('taskst').innerHTML = S.task
+  ? `<b>مفعّلة ✓</b> – عند دخول كل شهر هجري تُصمَّم الورقة وتُطبع وحدها على <b>${S.cfg.printer}</b> (${S.cfg.paper}).`
+  : 'غير مفعّلة. للتفعيل: أشّر على الخانة، اختر الطابعة وحجم الورقة، ثم «حفظ الإعدادات».'; }
+async function change(obj, all = true) {
+  const r = await post('/api/draft', obj);
+  if (!r.ok) { toast(r.msg || 'خطأ'); return; }
+  S.cfg = r.cfg; monthUI(r.month);
+  if (r.cities) fillCities(r.cities);
+  showForm(); refresh(all);
+}
+const debounced = (fn) => { clearTimeout(timer); timer = setTimeout(fn, 450); };
+async function load() {
+  S = await fetch('/api/state').then(r => r.json());
+  $('ver').textContent = 'v' + S.version;
+  $('country').innerHTML = S.countries.map(([cc, ar, fr, en]) => `<option value="${cc}">${ar} — ${en}</option>`).join('');
+  $('method').innerHTML = S.methods.map(([k, ar, en]) => `<option value="${k}">${ar}</option>`).join('');
+  $('tune').innerHTML = PR.map(([k, n]) => `<div><label>${n}</label><input type="number" id="t_${k}" min="-30" max="30"></div>`).join('');
+  $('gallery').innerHTML = S.themes.map(([k, ar, en]) => `<div class="th" data-k="${k}" onclick="setTheme('${k}')">
+     <div class="mini"><iframe data-k="${k}" loading="lazy" tabindex="-1"></iframe></div><span>${ar}</span><small>${en}</small></div>`).join('');
+  fillCities(S.cities); monthUI(S.month); showForm();
+  setTheme(S.cfg.theme || 'glass'); refresh(true); fit();
+  fetch('/api/printers').then(r => r.json()).then(ps => {
+    $('printer').innerHTML = '<option value="">— اختر الطابعة —</option>' + ps.map(p => `<option>${p}</option>`).join('');
+    $('printer').value = S.cfg.printer || ''; });
+  // events
+  $('country').onchange = () => change({country: $('country').value});
+  $('city').onchange = () => { const k = cityMap[$('city').value]; if (k) change({city_key: k}); };
+  for (const k of ['method','asr','hijri_mode','lang2']) $(k).onchange = () => change({[k]: $(k).value});
+  $('hijri_adjust').onchange = () => change({hijri_adjust: parseInt($('hijri_adjust').value)});
+  $('morocco_plus1').onchange = () => change({morocco_plus1: $('morocco_plus1').checked});
+  for (const k of ['mosque_name','dua','city_ar','city_name']) $(k).oninput = () => debounced(() => change({[k]: $(k).value}));
+  $('tune').oninput = () => debounced(() => change({tune: Object.fromEntries(PR.map(([k]) => [k, +$('t_' + k).value || 0]))}));
+  for (const k of ['printer','paper']) $(k).onchange = () => change({[k]: $(k).value}, false);
+  $('copies').onchange = () => change({copies: +$('copies').value}, false);
+  $('auto_print').onchange = () => change({auto_print: $('auto_print').checked}, false);
+  $('file').onchange = () => { const f = $('file').files[0]; if (!f) return; const rd = new FileReader();
+    rd.onload = () => setImage(rd.result); rd.readAsDataURL(f); $('file').value = ''; };
+}
+async function setImage(data) { const r = await post('/api/image', {data}); S.cfg = r.cfg; showForm(); refresh(true); }
+async function save() { const r = await post('/api/save', {}); if (r.task !== undefined) S.task = r.task; taskUI(); toast(r.msg || (r.ok ? 'تم ✓' : 'خطأ'), 3500); }
+async function act(u) { toast(u.includes('print') ? 'جارٍ تجهيز الورقة وإرسالها للطابعة…' : 'جارٍ تجهيز ملف PDF…', 9000);
+  const r = await post(u); toast(r.msg || (r.ok ? 'تم ✓' : 'خطأ'), 4000); }
+window.addEventListener('resize', fit);
+document.addEventListener('contextmenu', e => { if (!['INPUT'].includes(e.target.tagName)) e.preventDefault(); });
+load();
+</script>
+</body></html>

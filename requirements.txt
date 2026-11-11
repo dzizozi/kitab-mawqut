@@ -1,0 +1,6 @@
+ephem>=4.1
+requests>=2.31
+pywebview>=5.0
+hijridate>=2.5
+tzdata>=2024.1
+pillow>=10.0
