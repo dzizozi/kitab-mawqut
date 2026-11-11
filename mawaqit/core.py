@@ -1,25 +1,16 @@
-"""Core: sources -> monthly model -> files -> print / notify. Everything runs hidden (no console windows)."""
-import json, os, subprocess, datetime as dt, logging, tempfile, shutil, base64, winreg
+"""Core: sources -> monthly model -> files -> print / notify (OS specifics live in osal.py)."""
+import json, os, datetime as dt, logging, tempfile, shutil
 import requests
-from . import paths, calc, hijri, config, render
+from . import paths, calc, hijri, config, render, osal
+from .osal import run_hidden, printers, notify, task_on, open_path
 from .events import HIJRI_EVENTS, HIJRI_EVENTS_MA, NATIONAL, HIJRI
 
-NOWIN = 0x08000000   # CREATE_NO_WINDOW
-SYS32 = os.path.join(os.environ.get('SystemRoot', r'C:\Windows'), 'System32')
-POWERSHELL = os.path.join(SYS32, 'WindowsPowerShell', 'v1.0', 'powershell.exe')
-SCHTASKS = os.path.join(SYS32, 'schtasks.exe')
 HABOUS = 'https://www.habous.gov.ma/data/'
-UA = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AlKitabAlMawqut/' + paths.VERSION}
+UA = {'User-Agent': 'Mozilla/5.0 AlKitabAlMawqut/' + paths.VERSION}
 logging.basicConfig(filename=paths.LOG_F, level=logging.INFO, encoding='utf-8',
                     format='%(asctime)s %(levelname)s %(message)s')
 log = logging.getLogger('mawqut')
 D = dt.timedelta
-
-
-def run_hidden(args, **kw):
-    kw.setdefault('capture_output', True); kw.setdefault('text', True)
-    kw.setdefault('encoding', 'oem'); kw.setdefault('errors', 'replace')
-    return subprocess.run(args, creationflags=NOWIN, **kw)
 
 
 # ---------------------------------------------------------------- Habous (Morocco official source)
@@ -117,122 +108,39 @@ def _shift(hhmm, minutes):
     return '%02d:%02d' % divmod(t, 60)
 
 
-# ---------------------------------------------------------------- rendering with the system Chromium (Edge)
-def browser_exe():
-    cands = []
-    for root in (winreg.HKEY_LOCAL_MACHINE, winreg.HKEY_CURRENT_USER):
-        for sub in (r'SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\msedge.exe',
-                    r'SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe'):
-            try: cands.append(winreg.QueryValue(root, sub))
-            except OSError: pass
-    cands += [r'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe',
-              r'C:\Program Files\Microsoft\Edge\Application\msedge.exe',
-              r'C:\Program Files\Google\Chrome\Application\chrome.exe']
-    for c in cands:
-        if c and os.path.exists(c): return c
-    raise RuntimeError('Microsoft Edge / Chrome not found')
-
-
+# ---------------------------------------------------------------- rendering
 def render_files(M, cfg, theme=None, pdf=True):
+    from PIL import Image
     theme = theme or cfg.get('theme', 'glass')
     a3 = cfg.get('paper') == 'A3'
     base = os.path.join(paths.OUT, 'mawaqit-%s-%s' % (M['key'], theme))
     html = render.render_html(M, cfg, theme, font_base=render.file_url(paths.FONTS) + '/')
     open(base + '.html', 'w', encoding='utf-8').write(html)
-    prof = tempfile.mkdtemp(prefix='edge-', dir=paths.CACHE)
-    common = [browser_exe(), '--headless=new', '--disable-gpu', '--hide-scrollbars', '--no-first-run',
-              '--disable-extensions', '--user-data-dir=' + prof, '--run-all-compositor-stages-before-draw',
-              '--virtual-time-budget=4000']
+    tmp = tempfile.mkdtemp(prefix='render-', dir=paths.CACHE)
     try:
-        run_hidden(common + ['--window-size=794,1123', '--force-device-scale-factor=%s' % (4.2 if a3 else 3),
-                             '--screenshot=' + base + '.png', render.file_url(base + '.html')], timeout=120)
-        if pdf:
-            wrap = base + '-print.html'
-            size = ('A3', '297mm', '420mm') if a3 else ('A4', '210mm', '297mm')
-            open(wrap, 'w', encoding='utf-8').write(
-                '<html><head><style>@page{size:%s;margin:0}html,body{margin:0}img{width:%s;height:%s;display:block}</style>'
-                '</head><body><img src="%s"></body></html>' % (size + (os.path.basename(base) + '.png',)))
-            run_hidden(common + ['--print-to-pdf=' + base + '.pdf', '--no-pdf-header-footer', render.file_url(wrap)], timeout=120)
-            os.remove(wrap)
+        if os.path.exists(base + '.png'): os.remove(base + '.png')
+        osal.screenshot(base + '.html', base + '.png', 4.2 if a3 else 3, tmp)
     finally:
-        shutil.rmtree(prof, ignore_errors=True)
+        shutil.rmtree(tmp, ignore_errors=True)
+    if pdf:   # PDF built from the PNG (keeps blur/glass effects exactly as rendered)
+        im = Image.open(base + '.png').convert('RGB')
+        im.save(base + '.pdf', 'PDF', resolution=im.width / (11.69 if a3 else 8.27))
     return base + '.png', (base + '.pdf' if pdf else None)
 
 
-# ---------------------------------------------------------------- print & notify (hidden PowerShell)
-def _ps(script, timeout=180):
-    # script goes through stdin (no -EncodedCommand / -WindowStyle Hidden: antivirus products flag that pattern)
-    return run_hidden([POWERSHELL, '-NoProfile', '-NoLogo', '-Command', '-'], input=script + '\n', timeout=timeout)
-
-
-def printers():
-    r = _ps("Get-Printer | ForEach-Object { 'P>' + $_.Name }", 60)
-    return [l[2:].strip() for l in (r.stdout or '').splitlines() if l.startswith('P>')]
-
-
-def print_png(png, cfg, to_file=None):
-    q = lambda s: str(s).replace("'", "''")
-    script = r'''
-$ErrorActionPreference = 'Stop'
-try {
-Add-Type -AssemblyName System.Drawing
-$img = [System.Drawing.Image]::FromFile('%s')
-$pd = New-Object System.Drawing.Printing.PrintDocument
-if ('%s' -ne '') { $pd.PrinterSettings.PrinterName = '%s' }
-$pd.PrinterSettings.Copies = %d
-$pd.DocumentName = 'Al-Kitab Al-Mawqut'
-$pd.DefaultPageSettings.Margins = New-Object System.Drawing.Printing.Margins(0,0,0,0)
-foreach ($s in $pd.PrinterSettings.PaperSizes) { if ($s.Kind -eq '%s') { $pd.DefaultPageSettings.PaperSize = $s } }
-$pd.add_PrintPage({ param($s,$e)
-  $b = $e.PageBounds; $r = [Math]::Min($b.Width / $img.Width, $b.Height / $img.Height)
-  $w = $img.Width * $r; $h = $img.Height * $r
-  $e.Graphics.InterpolationMode = 'HighQualityBicubic'
-  $e.Graphics.DrawImage($img, [single](($b.Width - $w) / 2), [single](($b.Height - $h) / 2), [single]$w, [single]$h) })
-%s
-$pd.Print(); $img.Dispose(); 'PRINT-OK'
-} catch { 'PRINT-ERR ' + $_.Exception.Message }
-''' % (q(png), q(cfg.get('printer', '')), q(cfg.get('printer', '')), int(cfg.get('copies', 1)),
-       'A3' if cfg.get('paper') == 'A3' else 'A4',
-       ("$pd.PrinterSettings.PrintToFile = $true; $pd.PrinterSettings.PrintFileName = '%s'" % q(to_file)) if to_file else '')
-    r = _ps(script)
-    out = r.stdout or ''
-    if 'PRINT-OK' not in out:
-        err = [l for l in out.splitlines() if l.startswith('PRINT-ERR')]
-        raise RuntimeError(err[0][10:] if err else (r.stderr or out)[-300:])
-
-
-def notify(title, msg):
-    q = lambda s: s.replace("'", "''")
-    script = ('Add-Type -AssemblyName System.Windows.Forms; $n = New-Object System.Windows.Forms.NotifyIcon; '
-              '$n.Icon = [System.Drawing.SystemIcons]::Information; $n.Visible = $true; '
-              "$n.ShowBalloonTip(10000, '%s', '%s', 'Info'); Start-Sleep 10; $n.Dispose()" % (q(title), q(msg)))
-    p = subprocess.Popen([POWERSHELL, '-NoProfile', '-NoLogo', '-Command', '-'], stdin=subprocess.PIPE,
-                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=NOWIN,
-                         text=True, encoding='utf-8')
-    p.stdin.write(script + '\n'); p.stdin.close()
-
-
-# ---------------------------------------------------------------- scheduled task
-TASK = paths.APP_ID
-
-
-def task_on():
-    return run_hidden([SCHTASKS, '/Query', '/TN', TASK]).returncode == 0
+def print_sheet(png, pdf, cfg, to_file=None):
+    osal.print_sheet(png, pdf, cfg, to_file)
 
 
 def set_task(on, current_key=None):
-    if on:
-        cmd = ' '.join('"%s"' % a for a in paths.launcher()) + ' --auto'
-        r = run_hidden([SCHTASKS, '/Create', '/TN', TASK, '/SC', 'HOURLY', '/TR', cmd, '/F'])
-        if current_key:   # automation starts with the NEXT month
-            json.dump({'printed': current_key}, open(paths.STATE_F, 'w'))
-    else:
-        r = run_hidden([SCHTASKS, '/Delete', '/TN', TASK, '/F'])
-    return r.returncode == 0, ((r.stdout or '') + (r.stderr or '')).strip()
+    ok, msg = osal.set_task(on)
+    if on and ok and current_key:      # automation starts with the NEXT month
+        json.dump({'printed': current_key}, open(paths.STATE_F, 'w'))
+    return ok, msg
 
 
 def auto_run():
-    """Called hourly by Windows Task Scheduler."""
+    """Called hourly by the OS scheduler (Task Scheduler / launchd / systemd)."""
     cfg = config.load()
     if not (cfg.get('auto_print') and cfg.get('printer')):
         return
@@ -243,7 +151,7 @@ def auto_run():
     png, pdf = render_files(M, cfg)
     title = '%s %d' % (HIJRI['ar'][M['mois'] - 1], M['annee'])
     try:
-        print_png(png, cfg)
+        print_sheet(png, pdf, cfg)
         state['printed'] = M['key']; json.dump(state, open(paths.STATE_F, 'w'))
         log.info('auto-printed %s', M['key'])
         notify(paths.APP_NAME_AR, 'طُبعت ورقة شهر ' + title)

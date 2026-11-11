@@ -67,7 +67,8 @@ def html_page():
 
 
 class H(BaseHTTPRequestHandler):
-    def log_message(self, *a): pass
+    def log_message(self, fmt, *a):
+        if os.environ.get('MAWQUT_HTTP_LOG'): core.log.info('http ' + fmt, *a)
 
     def send(self, code, body, ctype='application/json; charset=utf-8'):
         if isinstance(body, (dict, list)): body = json.dumps(body, ensure_ascii=False, default=str)
@@ -130,13 +131,13 @@ class H(BaseHTTPRequestHandler):
                 d = draft()
                 png, pdf = core.render_files(model(d), d, d.get('theme'))
                 if self.path == '/api/pdf':
-                    os.startfile(pdf); return self.send(200, dict(ok=True, msg='تم فتح ملف PDF ✓'))
+                    core.open_path(pdf); return self.send(200, dict(ok=True, msg='تم فتح ملف PDF ✓'))
                 if not d.get('printer'):
                     return self.send(200, dict(ok=False, msg='اختر الطابعة أولاً'))
-                core.print_png(png, d)
+                core.print_sheet(png, pdf, d)
                 return self.send(200, dict(ok=True, msg='أُرسلت الورقة إلى الطابعة ✓'))
             if self.path == '/api/folder':
-                os.startfile(paths.OUT); return self.send(200, dict(ok=True))
+                core.open_path(paths.OUT); return self.send(200, dict(ok=True))
             self.send(404, {'error': 'not found'})
         except Exception as e:
             core.log.exception('POST %s', self.path); self.send(500, dict(ok=False, msg=str(e)))
@@ -154,6 +155,7 @@ def main(debug=False):
     srv, url = serve()
     win = webview.create_window(paths.APP_NAME_AR + ' – ' + paths.APP_NAME_LAT, url, width=1400, height=920,
                                 min_size=(1100, 720), background_color='#eef3f1', text_select=True)
-    webview.start(gui='edgechromium', debug=debug, private_mode=False,
-                  storage_path=os.path.join(paths.CACHE, 'webview'))
+    import sys
+    gui = 'edgechromium' if sys.platform == 'win32' else ('cocoa' if sys.platform == 'darwin' else 'qt')
+    webview.start(gui=gui, debug=debug, private_mode=False, storage_path=os.path.join(paths.CACHE, 'webview'))
     srv.shutdown()

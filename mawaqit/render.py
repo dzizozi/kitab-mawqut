@@ -18,7 +18,8 @@ BGDECO = ('<div class="bgdeco"><div class="blob b1"></div><div class="blob b2"><
 FONTS = [('Amiri', 'Amiri-Regular.ttf', 400), ('Amiri', 'Amiri-Bold.ttf', 700),
          ('Noto Kufi Arabic', 'NotoKufiArabic-Regular.ttf', 400), ('Noto Kufi Arabic', 'NotoKufiArabic-Bold.ttf', 700),
          ('Noto Kufi Arabic', 'NotoKufiArabic-Bold.ttf', 800),
-         ('Noto Sans Arabic', 'NotoSansArabic-Regular.ttf', 400), ('Noto Sans Arabic', 'NotoSansArabic-Bold.ttf', 700)]
+         ('Noto Sans Arabic', 'NotoSansArabic-Regular.ttf', 400), ('Noto Sans Arabic', 'NotoSansArabic-Bold.ttf', 700),
+         ('UILatin', 'NotoSans-Regular.ttf', 400), ('UILatin', 'NotoSans-Bold.ttf', 600), ('UILatin', 'NotoSans-Bold.ttf', 700)]
 
 
 def file_url(p):

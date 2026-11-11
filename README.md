@@ -4,7 +4,7 @@
 
 ﴿إِنَّ الصَّلَاةَ كَانَتْ عَلَى الْمُؤْمِنِينَ كِتَابًا مَّوْقُوتًا﴾
 
-برنامج مجاني ومفتوح المصدر لنظام Windows، يصمّم **ورقة مواقيت الصلاة لشهر هجري كامل** جاهزة للتعليق في المسجد أو البيت، ويطبعها **تلقائياً عند دخول كل شهر هجري**.
+برنامج مجاني ومفتوح المصدر لأنظمة Windows وmacOS وLinux، يصمّم **ورقة مواقيت الصلاة لشهر هجري كامل** جاهزة للتعليق في المسجد أو البيت، ويطبعها **تلقائياً عند دخول كل شهر هجري**.
 
 ![البرنامج](docs/app.jpg)
 
@@ -22,24 +22,27 @@
 - تعديل يدوي للأوقات بالدقائق لمطابقة توقيت مسجدك.
 
 ## التثبيت
-1. حمّل الملف `AlKitabAlMawqut-Setup-x.y.z.exe` من صفحة **[Releases](../../releases/latest)**.
-2. شغّله واتبع الخطوات (لا يحتاج صلاحيات المدير).
-3. افتح «الكتاب الموقوت» من سطح المكتب.
+حمّل الملف المناسب لجهازك من صفحة **[Releases](../../releases/latest)**:
 
-> قد يظهر تنبيه Windows SmartScreen لأن البرنامج غير موقّع رقمياً: اضغط «More info» ثم «Run anyway».
+| النظام | الملف | الطريقة |
+|---|---|---|
+| Windows 10/11 | `AlKitabAlMawqut-Setup-x.y.z.exe` | شغّله واتبع الخطوات (لا يحتاج صلاحيات المدير). إن ظهر تنبيه SmartScreen: «More info» ثم «Run anyway». |
+| macOS (Apple Silicon M1–M4) | `AlKitabAlMawqut-x.y.z-macOS-arm64.dmg` | افتحه واسحب البرنامج إلى Applications. أول مرة: انقر بزر الفأرة الأيمن على البرنامج ← «Open»، أو من System Settings ← Privacy & Security ← «Open Anyway» (البرنامج غير موثّق لدى Apple). |
+| Linux (x86-64) | `AlKitabAlMawqut-x.y.z-linux-x86_64.tar.gz` | فكّ الضغط ثم شغّل `./AlKitabAlMawqut/install.sh` ليظهر في قائمة البرامج. |
 
-يحتاج البرنامج Windows 10 أو 11 (يستعمل Microsoft Edge WebView2 المثبت مسبقاً).
+- لتصميم ورقة PDF والطباعة على macOS وLinux يستعمل البرنامج متصفح Chrome أو Chromium أو Edge أو Firefox المثبّت في الجهاز.
+- الطباعة التلقائية: Windows (Task Scheduler)، macOS (launchd)، Linux (systemd أو cron) — كلها في الخلفية ودون أي نافذة.
 
 </div>
 
 ---
 
 ## Français
-Logiciel libre et gratuit pour Windows : il compose la **feuille mensuelle des horaires de prière** (mois de l'Hégire), en 8 styles graphiques, pour n'importe quel pays (22 méthodes de calcul), avec le nom et la photo de la mosquée, et l'imprime **automatiquement au début de chaque mois hégirien** (optionnel, en arrière-plan). Pour le Maroc, horaires officiels du Ministère des Habous.
+Logiciel libre et gratuit pour Windows, macOS et Linux : il compose la **feuille mensuelle des horaires de prière** (mois de l'Hégire), en 8 styles graphiques, pour n'importe quel pays (22 méthodes de calcul), avec le nom et la photo de la mosquée, et l'imprime **automatiquement au début de chaque mois hégirien** (optionnel, en arrière-plan). Pour le Maroc, horaires officiels du Ministère des Habous.
 Téléchargement : page **Releases**.
 
 ## English
-Free, open-source Windows app that designs a **monthly (Hijri) prayer-time sheet** in 8 visual styles for any country (22 calculation methods, Hanafi/Shafi'i Asr, Umm al-Qura or local moon-sighting calendar), with your mosque's name and logo, and can print it **automatically when each Hijri month begins**. Morocco uses the official Ministry of Habous timetables.
+Free, open-source desktop app (Windows, macOS, Linux) that designs a **monthly (Hijri) prayer-time sheet** in 8 visual styles for any country (22 calculation methods, Hanafi/Shafi'i Asr, Umm al-Qura or local moon-sighting calendar), with your mosque's name and logo, and can print it **automatically when each Hijri month begins**. Morocco uses the official Ministry of Habous timetables.
 Download the installer from **Releases**.
 
 ## Development
@@ -48,7 +51,9 @@ py -3.11 -m venv .venv
 .venv\Scripts\pip install -r requirements.txt pyinstaller
 .venv\Scripts\python run.py          # window
 .venv\Scripts\python run.py --auto   # background check (used by Task Scheduler)
-build.cmd                              # exe + installer (needs Inno Setup 6)
+build.cmd                              # Windows exe + installer (needs Inno Setup 6)
+./build_mac.sh                         # macOS .app + .dmg
+./build_linux.sh                       # Linux tar.gz (Qt WebEngine)
 ```
 
 ## Credits & licenses

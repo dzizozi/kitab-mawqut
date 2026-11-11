@@ -7,7 +7,7 @@ BASE = r'''
 * { box-sizing: border-box; margin: 0; padding: 0 }
 html, body { width: 794px; height: 1123px; overflow: hidden }
 body { direction: rtl; position: relative; -webkit-print-color-adjust: exact; print-color-adjust: exact;
-  font-family: 'Noto Kufi Arabic', 'Segoe UI', sans-serif; color: #1d2b36 }
+  font-family: 'Noto Kufi Arabic', 'Segoe UI', 'UILatin', sans-serif; color: #1d2b36 }
 .bgdeco { position: absolute; inset: 0; overflow: hidden }
 .bgdeco > * { position: absolute; display: none }
 .page { position: relative; padding: 18px 20px 12px; height: 100%; display: flex; flex-direction: column; gap: 8px }
@@ -18,7 +18,7 @@ body { direction: rtl; position: relative; -webkit-print-color-adjust: exact; pr
 .head > div { position: relative; z-index: 1 }
 .skyline { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: 34px; display: none }
 .h-title { font-family: 'Amiri', serif; font-weight: 700; font-size: 36px; line-height: 1.1 }
-.h-sub { font-family: 'Segoe UI', sans-serif; font-size: 12px; letter-spacing: 2.5px; text-transform: uppercase; direction: ltr; text-align: right }
+.h-sub { font-family: 'Segoe UI', 'UILatin', sans-serif; font-size: 12px; letter-spacing: 2.5px; text-transform: uppercase; direction: ltr; text-align: right }
 .h-left { text-align: left } .h-left .h-title { font-size: 28px } .h-left .h-sub { text-align: left }
 .h-mid { text-align: center; padding: 0 14px }
 .emblem { width: 58px; height: 58px; margin: 0 auto 2px; display: grid; place-items: center }
@@ -28,19 +28,19 @@ body { direction: rtl; position: relative; -webkit-print-color-adjust: exact; pr
 .h-sub2 { font-size: 12px; font-weight: 700; margin-top: 3px; opacity: .8 }
 .ic { width: 36px; height: 36px }
 .month { font-family: 'Amiri', serif; font-weight: 700; font-size: 38px; line-height: 1.05 }
-.month-fr { font-family: 'Segoe UI'; font-size: 11.5px; letter-spacing: 3px; text-transform: uppercase }
+.month-fr { font-family: 'Segoe UI', 'UILatin'; font-size: 11.5px; letter-spacing: 3px; text-transform: uppercase }
 .meta { display: flex; justify-content: space-between; align-items: center; padding: 2px 10px; font-size: 12px }
-.meta .fr { font-family: 'Segoe UI' }
+.meta .fr { font-family: 'Segoe UI', 'UILatin' }
 .dua { font-family: 'Amiri'; font-size: 15px }
 .tbl { padding: 7px 9px; flex: 1 1 0 !important; min-height: 0; display: flex }
 table { width: 100%; height: 100%; border-collapse: separate; border-spacing: 0 2px }
 thead th { font-weight: 700; font-size: 13px; padding: 4px 2px 3px; line-height: 1.15 }
 thead th.side { background: none !important; border: 0 !important; box-shadow: none !important }
-thead th small { display: block; font-family: 'Segoe UI'; font-weight: 600; font-size: 9.5px; letter-spacing: .5px; opacity: .85 }
-tbody td { text-align: center; line-height: 1; padding: 0 2px; font-family: 'Segoe UI', sans-serif;
+thead th small { display: block; font-family: 'Segoe UI', 'UILatin'; font-weight: 600; font-size: 9.5px; letter-spacing: .5px; opacity: .85 }
+tbody td { text-align: center; line-height: 1; padding: 0 2px; font-family: 'Segoe UI', 'UILatin', sans-serif;
   font-variant-numeric: tabular-nums; font-weight: 600; font-size: 14px }
 td.day { text-align: right; padding-right: 10px; font-family: 'Noto Kufi Arabic'; font-size: 12.5px; font-weight: 700; white-space: nowrap }
-td.day small { font-family: 'Segoe UI'; font-weight: 600; font-size: 9.5px; margin-right: 4px; opacity: .65 }
+td.day small { font-family: 'Segoe UI', 'UILatin'; font-weight: 600; font-size: 9.5px; margin-right: 4px; opacity: .65 }
 td.hd { font-weight: 800 }
 td.gd i { font-style: normal; font-family: 'Noto Kufi Arabic'; font-size: 9.5px; font-weight: 700; padding: 0 5px; margin-left: 4px }
 td.side { width: 26px; padding: 0; background: none !important; border: 0 !important; box-shadow: none !important }
@@ -51,17 +51,17 @@ tr.ev td.hd::after { content: '✦'; font-size: 10px; margin-right: 2px }
 .bottom { display: grid; grid-template-columns: 1.05fr 1fr; gap: 8px }
 .card { padding: 8px 14px }
 .card h3 { font-size: 12.5px; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: baseline }
-.card h3 small { font-family: 'Segoe UI'; font-weight: 600; font-size: 10px; letter-spacing: .5px; opacity: .75 }
+.card h3 small { font-family: 'Segoe UI', 'UILatin'; font-weight: 600; font-size: 10px; letter-spacing: .5px; opacity: .75 }
 .evl { list-style: none; font-size: 11px; line-height: 1.5 }
 .evl li { display: flex; gap: 6px; align-items: baseline }
-.evl .dt { font-family: 'Segoe UI'; font-weight: 700; min-width: 132px; font-size: 11px; white-space: nowrap }
-.evl .fr { font-family: 'Segoe UI'; font-size: 10px; margin-right: auto; direction: ltr; opacity: .7 }
+.evl .dt { font-family: 'Segoe UI', 'UILatin'; font-weight: 700; min-width: 132px; font-size: 11px; white-space: nowrap }
+.evl .fr { font-family: 'Segoe UI', 'UILatin'; font-size: 10px; margin-right: auto; direction: ltr; opacity: .7 }
 .dot { width: 7px; height: 7px; display: inline-block; flex: none; border-radius: 50% }
 .chips { display: grid; grid-template-columns: 1fr 1fr; gap: 4px }
 .chip { padding: 3px 8px; font-size: 11.5px; font-weight: 700; display: flex; justify-content: space-between; align-items: center }
-.chip span { font-family: 'Segoe UI'; font-weight: 600; font-size: 11px }
+.chip span { font-family: 'Segoe UI', 'UILatin'; font-weight: 600; font-size: 11px }
 .foot { display: flex; justify-content: space-between; gap: 10px; font-size: 9px; line-height: 1.3; padding: 0 10px; opacity: .85; white-space: nowrap }
-.foot span:last-child { font-family: 'Segoe UI'; direction: ltr }
+.foot span:last-child { font-family: 'Segoe UI', 'UILatin'; direction: ltr }
 '''
 
 def T(key, ar, en, css):
@@ -173,11 +173,11 @@ tr.ev td { background: #fef3c7 } tr.ev td.hd::after { color: #d97706 } tr.next t
 
 # ------------------------------------------------------------------ 4. Swiss style
 T('swiss', 'سويسري', 'Swiss style', r'''
-body { color: #111; background: #fff; font-family: 'Segoe UI', 'Noto Sans Arabic', sans-serif }
+body { color: #111; background: #fff; font-family: 'Segoe UI', 'UILatin', 'Noto Sans Arabic', sans-serif }
 .bgdeco .bar { display: block; background: #e30613; top: 0; right: 0; width: 14px; height: 100% }
 .panel { background: transparent }
 .head { border-top: 6px solid #111; border-bottom: 1px solid #111; padding: 10px 6px; grid-template-columns: 1.3fr auto 1fr }
-.h-title { font-family: 'Noto Sans Arabic', 'Segoe UI'; font-weight: 700; font-size: 40px; letter-spacing: -1px; color: #111 }
+.h-title { font-family: 'Noto Sans Arabic', 'Segoe UI', 'UILatin'; font-weight: 700; font-size: 40px; letter-spacing: -1px; color: #111 }
 .h-left .h-title { font-size: 22px; font-weight: 400 } .h-sub { color: #e30613; font-weight: 700; letter-spacing: 1px }
 .emblem { display: none }
 .month { font-family: 'Noto Sans Arabic'; font-weight: 700; font-size: 30px; color: #e30613 } .month-fr { color: #111; font-weight: 700 }

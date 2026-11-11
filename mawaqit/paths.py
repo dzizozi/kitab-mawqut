@@ -4,13 +4,18 @@ import os, sys
 APP_ID = 'AlKitabAlMawqut'
 APP_NAME_AR = 'الكتاب الموقوت'
 APP_NAME_LAT = 'Al-Kitab Al-Mawqut'
-VERSION = '1.0.0'
+VERSION = '1.1.0'
 
 FROZEN = getattr(sys, 'frozen', False)
 RES = os.path.join(sys._MEIPASS, 'mawaqit') if FROZEN else os.path.dirname(os.path.abspath(__file__))
 DATA_RES = os.path.join(RES, 'data')
 FONTS = os.path.join(RES, 'fonts')
-USER = os.path.join(os.environ.get('APPDATA') or os.path.expanduser('~'), APP_ID)
+if sys.platform == 'win32':
+    USER = os.path.join(os.environ.get('APPDATA') or os.path.expanduser('~'), APP_ID)
+elif sys.platform == 'darwin':
+    USER = os.path.expanduser('~/Library/Application Support/' + APP_ID)
+else:
+    USER = os.path.join(os.environ.get('XDG_DATA_HOME') or os.path.expanduser('~/.local/share'), APP_ID)
 CACHE = os.path.join(USER, 'cache')
 OUT = os.path.join(USER, 'sheets')
 for d in (USER, CACHE, OUT):
@@ -25,5 +30,5 @@ def launcher():
     if FROZEN:
         return [sys.executable]
     pyw = os.path.join(os.path.dirname(sys.executable), 'pythonw.exe')
-    return [pyw if os.path.exists(pyw) else sys.executable,
-            os.path.join(os.path.dirname(RES), 'run.py')]
+    exe = pyw if (sys.platform == 'win32' and os.path.exists(pyw)) else sys.executable
+    return [exe, os.path.join(os.path.dirname(RES), 'run.py')]
