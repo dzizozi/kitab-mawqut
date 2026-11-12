@@ -6,11 +6,23 @@ from . import paths
 _DATA = None
 
 
-def ahzab():
+RIWAYAT = (('warsh', 'ورش عن نافع (المغرب)'), ('hafs', 'حفص عن عاصم'))
+
+
+def data():
     global _DATA
     if _DATA is None:
-        _DATA = json.load(open(os.path.join(paths.DATA_RES, 'ahzab.json'), encoding='utf-8'))['ahzab']
+        _DATA = json.load(open(os.path.join(paths.DATA_RES, 'ahzab.json'), encoding='utf-8'))
     return _DATA
+
+
+def riwaya(cfg):
+    r = (cfg or {}).get('riwaya')
+    return r if r in ('warsh', 'hafs') else ('warsh' if (cfg or {}).get('country', 'MA') == 'MA' else 'hafs')
+
+
+def ahzab(r='warsh'):
+    return data()[r if r in ('warsh', 'hafs') else 'warsh']
 
 
 def nxt(n, k=1):
@@ -18,8 +30,8 @@ def nxt(n, k=1):
     return (int(n) - 1 + k) % 60 + 1
 
 
-def choices():
-    return [[h['n'], h['sura_name'], h['words']] for h in ahzab()]
+def choices(r='warsh'):
+    return [[h['n'], h['sura_name'], h['words']] for h in ahzab(r)]
 
 
 def day_model(cfg, day=None, fajr=None, isha=None):
@@ -38,6 +50,7 @@ def day_model(cfg, day=None, fajr=None, isha=None):
         hday, mois, annee, times = (1 if row['is_next'] else row['hday']), M['mois'], M['annee'], row['times']
         if row['is_next']:
             mois, annee = (1, annee + 1) if mois == 12 else (mois + 1, annee)
-    A = ahzab()
-    return dict(key=day.isoformat(), date=day, hday=hday, mois=mois, annee=annee, times=times,
+    r = riwaya(cfg)
+    A = ahzab(r)
+    return dict(riwaya=r, key=day.isoformat(), date=day, hday=hday, mois=mois, annee=annee, times=times,
                 fajr=A[fajr - 1], isha=A[isha - 1])

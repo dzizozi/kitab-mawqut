@@ -169,6 +169,7 @@ body[data-theme=y2k] h1 { background: linear-gradient(90deg,#ff2fb8,#7a00ff,#00b
  </div>
  <div class="panel"><h2><svg class="ico"><use href="#i-moon"/></svg>ورقة حزب القراءة</h2>
   <div class="status">حزب بعد صلاة الصبح وحزب بعد صلاة العشاء، بنفس التصميم. تُطبع بالأعداد والطابعات المحدّدة أعلاه.</div>
+  <label>الرواية وتقسيم الأحزاب</label><select id="riwaya"><option value="warsh">ورش عن نافع (المصحف المغربي)</option><option value="hafs">حفص عن عاصم</option></select>
   <label>التاريخ</label><input type="date" id="hizb_date">
   <label>بعد صلاة الصبح</label><select id="hizb_fajr" class="hz-sel"></select>
   <label>بعد صلاة العشاء</label><select id="hizb_isha" class="hz-sel"></select>
@@ -218,7 +219,7 @@ function refresh(all) {
 function setView(v) { VIEW = v; $('v_month').classList.toggle('on', v === 'month'); $('v_hizb').classList.toggle('on', v === 'hizb'); refresh(true); }
 const today = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10); };
 const hnext = (n, k = 1) => ((+n - 1 + k) % 60) + 1;
-function hizbData() { return {hizb_date: $('hizb_date').value || today(), hizb_fajr: +$('hizb_fajr').value, hizb_isha: +$('hizb_isha').value}; }
+function hizbData() { return {riwaya: $('riwaya').value, hizb_date: $('hizb_date').value || today(), hizb_fajr: +$('hizb_fajr').value, hizb_isha: +$('hizb_isha').value}; }
 async function hizbChange(extra) { const r = await post('/api/draft', Object.assign(hizbData(), extra || {})); if (r.ok) S.cfg = r.cfg; setView('hizb'); }
 function hmInfo() { const n = +$('hm_copies').value || 1, dup = $('hm_duplex').checked;
   $('hm_info').innerHTML = `A4 فقط · ${dup ? 15 * n : 30 * n} ورقة${dup ? ' (وجهان)' : ''} على <b>${S.cfg.a4_printer || S.cfg.printer || '—'}</b>`; }
@@ -226,7 +227,7 @@ async function hizbMonth(u) {
   if (busy) return; busy = true;
   const btns = document.querySelectorAll('aside .row .btn'); btns.forEach(b => b.disabled = true);
   try {
-    const r = await post(u, {start: $('hm_start').value, first: +$('hm_first').value || 1, copies: +$('hm_copies').value || 1, duplex: $('hm_duplex').checked});
+    const r = await post(u, {riwaya: $('riwaya').value, start: $('hm_start').value, first: +$('hm_first').value || 1, copies: +$('hm_copies').value || 1, duplex: $('hm_duplex').checked});
     if (!r.ok) { toast(r.msg || 'خطأ', 5000); return; }
     for (;;) { await new Promise(res => setTimeout(res, 1000));
       const j = await fetch('/api/job').then(r => r.json());
@@ -234,6 +235,13 @@ async function hizbMonth(u) {
       toast(j.msg || 'تم ✓', 6000); break; }
   } catch (e) { toast('خطأ: ' + e.message, 5000); }
   finally { busy = false; btns.forEach(b => b.disabled = false); }
+}
+async function loadAhzab() {
+  const f = $('hizb_fajr').value || S.cfg.hizb_fajr || 1, i = $('hizb_isha').value || S.cfg.hizb_isha || hnext(f);
+  const list = await fetch('/api/ahzab?r=' + $('riwaya').value).then(r => r.json());
+  const opts = list.map(([n, sura, w]) => `<option value="${n}">الحزب ${n} — ${w.split(' ').slice(0, 4).join(' ')} (${sura})</option>`).join('');
+    $('hizb_fajr').innerHTML = $('hizb_isha').innerHTML = opts;
+    $('hizb_fajr').value = f; $('hizb_isha').value = i;
 }
 function hizbNext() {
   const d = new Date(($('hizb_date').value || today()) + 'T12:00:00'); d.setDate(d.getDate() + 1);
@@ -292,10 +300,9 @@ async function load() {
   $('gallery').innerHTML = S.themes.map(([k, ar, en]) => `<div class="th" data-k="${k}" onclick="setTheme('${k}')">
      <div class="mini"><iframe data-k="${k}" loading="lazy" tabindex="-1"></iframe></div><span>${ar}</span><small>${en}</small></div>`).join('');
   fillCities(S.cities); monthUI(S.month); showForm();
-  fetch('/api/ahzab').then(r => r.json()).then(list => {
-    const opts = list.map(([n, sura, w]) => `<option value="${n}">الحزب ${n} — ${w.split(' ').slice(0, 4).join(' ')} (${sura})</option>`).join('');
-    $('hizb_fajr').innerHTML = $('hizb_isha').innerHTML = opts;
-    $('hizb_fajr').value = S.cfg.hizb_fajr || 1; $('hizb_isha').value = S.cfg.hizb_isha || hnext(S.cfg.hizb_fajr || 1); });
+  $('riwaya').value = S.riwaya || 'warsh';
+  $('riwaya').onchange = () => loadAhzab().then(() => hizbChange());
+  loadAhzab();
   $('hizb_date').value = today();
   $('hm_start').value = S.month_start; hmInfo();
   for (const k of ['hm_copies','hm_duplex']) $(k).onchange = hmInfo;

@@ -48,6 +48,7 @@ def apply(changes):
         if k in changes: d[k] = bool(changes[k])
     for k in ('hizb_fajr', 'hizb_isha'):
         if k in changes: d[k] = max(1, min(60, int(changes[k] or 1)))
+    if changes.get('riwaya') in ('warsh', 'hafs'): d['riwaya'] = changes['riwaya']
     if 'hizb_date' in changes: d['hizb_date'] = changes['hizb_date'] or ''
     if 'tune' in changes: d['tune'] = {k: int(v or 0) for k, v in changes['tune'].items()}
     if 'mosque_image' in changes: d['mosque_image'] = changes['mosque_image']
@@ -108,11 +109,11 @@ class H(BaseHTTPRequestHandler):
             if u.path == '/api/job':
                 return self.send(200, JOB)
             if u.path == '/api/ahzab':
-                return self.send(200, ahzab.choices())
+                return self.send(200, ahzab.choices(q.get('r') or ahzab.riwaya(draft())))
             if u.path == '/api/state':
                 d = draft()
                 return self.send(200, dict(
-                    cfg=d, task=core.task_on(), month_start=model(d)['start'].isoformat(), month=month_info(d), version=paths.VERSION, os=('win' if os.name == 'nt' else 'unix'),
+                    cfg=d, riwaya=ahzab.riwaya(d), task=core.task_on(), month_start=model(d)['start'].isoformat(), month=month_info(d), version=paths.VERSION, os=('win' if os.name == 'nt' else 'unix'),
                     countries=config.countries(), cities=config.cities(d['country']),
                     methods=[[k, calc.METHODS[k]['ar'], calc.METHODS[k]['en']] for k in calc.METHOD_ORDER],
                     themes=[[k, themes.THEMES[k]['name_ar'], themes.THEMES[k]['name_en']] for k in themes.ORDER]))
@@ -156,7 +157,7 @@ class H(BaseHTTPRequestHandler):
             if self.path in ('/api/hizb-print', '/api/hizb-pdf'):
                 d = apply(data)
                 H = hizb_model(d)
-                saved = config.load(); saved.update(hizb_fajr=d['hizb_fajr'], hizb_isha=d['hizb_isha']); config.save(saved)
+                saved = config.load(); saved.update(hizb_fajr=d['hizb_fajr'], hizb_isha=d['hizb_isha'], riwaya=ahzab.riwaya(d)); config.save(saved)
                 if self.path == '/api/hizb-pdf':
                     paper = 'A3' if (int(d.get('a3_copies') or 0) and not int(d.get('a4_copies') or 0)) else 'A4'
                     png, pdf = core.render_files(H, d, d.get('theme'), paper=paper, sheet='hizb')
@@ -166,7 +167,8 @@ class H(BaseHTTPRequestHandler):
             if self.path in ('/api/hizb-month', '/api/hizb-month-pdf'):
                 if JOB['running']:
                     return self.send(200, dict(ok=False, msg='العمل جارٍ، انتظر قليلاً'))
-                d = draft()
+                d = apply({'riwaya': data.get('riwaya')}) if data.get('riwaya') else draft()
+                saved = config.load(); saved['riwaya'] = ahzab.riwaya(d); config.save(saved)
                 start = dt.date.fromisoformat(data.get('start') or model(d)['start'].isoformat())
                 first = max(1, min(60, int(data.get('first') or 1)))
                 copies = max(1, min(20, int(data.get('copies') or 1)))

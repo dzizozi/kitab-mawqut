@@ -200,6 +200,8 @@ def render_hizb_html(H, cfg, theme=None, font_base='/fonts/'):
                 % (label, label2, tm, h['n'], h['n'], e(h['words']), e(h['end_words']), e(where)))
 
     t = H['times'] or [None] * 6
+    src = ('رواية ورش عن نافع · تقسيم الأحزاب في المصحف المغربي · النص: مجمع الملك فهد' if H.get('riwaya') == 'warsh'
+           else 'رواية حفص عن عاصم · النص: مشروع تنزيل tanzil.net')
     return f'''<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>حزب اليوم {d.isoformat()}</title>
 <style>{font_css(font_base)}{themes.css_for(theme)}{HIZB_CSS}</style></head><body class="t-{theme}">{DEFS}{BGDECO}
 <div class="page">
@@ -217,5 +219,5 @@ def render_hizb_html(H, cfg, theme=None, font_base='/fonts/'):
   {card(H['isha'], 'بعد صلاة العشاء', "Après Ichaa" if L == 1 else 'After Isha', t[5])}
  </div>
  <div class="hz-dua dua">{e(cfg.get('dua', '') or 'خيركم من تعلّم القرآن وعلّمه')}</div>
- <div class="foot"><span>تقسيم القرآن الكريم إلى ستين حزباً · النص القرآني: مشروع تنزيل tanzil.net</span><span>{fmt_date(d)}</span></div>
+ <div class="foot"><span>{src}</span><span>{fmt_date(d)}</span></div>
 </div></body></html>'''
