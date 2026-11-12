@@ -1,7 +1,7 @@
 """Names, occasions and holidays (Arabic + French + English)."""
 
 HIJRI = {
-    'ar': ['محرم', 'صفر', 'ربيع الأول', 'ربيع الآخر', 'جمادى الأولى', 'جمادى الآخرة',
+    'ar': ['محرم', 'صفر', 'ربيع الأول', 'ربيع الثاني', 'جمادى الأولى', 'جمادى الثانية',
            'رجب', 'شعبان', 'رمضان', 'شوال', 'ذو القعدة', 'ذو الحجة'],
     'fr': ['Mouharram', 'Safar', 'Rabii I', 'Rabii II', 'Joumada I', 'Joumada II',
            'Rajab', 'Chaabane', 'Ramadan', 'Chawwal', 'Dhou al-Qiida', 'Dhou al-Hijja'],
