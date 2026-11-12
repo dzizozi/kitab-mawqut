@@ -109,7 +109,7 @@ def _shift(hhmm, minutes):
 
 
 # ---------------------------------------------------------------- rendering
-import threading
+import threading, time
 _render_lock = threading.Lock()
 
 
@@ -127,13 +127,14 @@ def render_files(M, cfg, theme=None, pdf=True, paper=None, sheet='month'):
         tmp = tempfile.mkdtemp(prefix='render-', dir=paths.CACHE)
         tmp_png = os.path.join(tmp, 'sheet.png')
         try:
-            for attempt in (1, 2):                       # one retry if the headless browser hiccups
+            for attempt in (1, 2, 3, 4):                 # the headless browser sometimes refuses to start: wait and retry
                 try:
                     osal.screenshot(base + '.html', tmp_png, 4.2 if a3 else 3, os.path.join(tmp, 'profile%d' % attempt))
                     break
                 except Exception:
-                    if attempt == 2: raise
-                    log.warning('render retry')
+                    if attempt == 4: raise
+                    log.warning('render retry %d', attempt)
+                    time.sleep(2 * attempt)
             os.replace(tmp_png, base + '.png')
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
@@ -163,15 +164,24 @@ def print_all(M, cfg, sheet='month'):
 
 
 def _print_all(M, cfg, sheet='month'):
+    """One separate print job per paper size (A3 first, then A4); a failure of one size does not stop the other."""
     jobs = config.print_jobs(cfg)
     if not jobs:
         raise RuntimeError('اختر عدد الأوراق والطابعة لحجم A4 أو A3')
-    done = []
+    done, failed = [], []
     for paper, copies, printer in jobs:
-        png, pdf = render_files(M, cfg, paper=paper, sheet=sheet)
-        print_sheet(png, pdf, dict(cfg, paper=paper, copies=copies, printer=printer))
-        done.append('%d × %s' % (copies, paper))
+        try:
+            png, pdf = render_files(M, cfg, paper=paper, sheet=sheet)
+            print_sheet(png, pdf, dict(cfg, paper=paper, copies=copies, printer=printer))
+            done.append('%d × %s' % (copies, paper))
+        except Exception as e:
+            log.exception('print %s', paper)
+            failed.append('%s: %s' % (paper, e))
+    log.info('print_all %s: ok=%s failed=%s', sheet, done, failed)
+    if failed:
+        raise RuntimeError(('طُبع: ' + ' + '.join(done) + ' · ' if done else '') + 'لم يُطبع ' + ' · '.join(failed))
     return ' + '.join(done)
+
 
 
 def set_task(on, current_key=None):

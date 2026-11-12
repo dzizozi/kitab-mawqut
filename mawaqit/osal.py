@@ -66,7 +66,10 @@ def screenshot(html_path, png_path, scale, tmpdir):
                 '--virtual-time-budget=4000', '--window-size=794,1123', '--force-device-scale-factor=%s' % scale,
                 '--screenshot=' + png_path, url]
         if LINUX: args.insert(1, '--no-sandbox')
-        run_hidden(args, timeout=120)
+        r = run_hidden(args, timeout=120)
+        if not os.path.exists(png_path):
+            import logging
+            logging.getLogger('mawqut').warning('browser rc=%s %s', r.returncode, ((r.stderr or '') + (r.stdout or ''))[-400:])
     elif kind == 'firefox':
         open(os.path.join(tmpdir, 'user.js'), 'w').write('user_pref("layout.css.devPixelsPerPx", "%s");\n' % scale)
         run_hidden([exe, '--headless', '--no-remote', '--profile', tmpdir, '--window-size=794,1123',
@@ -109,6 +112,8 @@ def print_sheet(png, pdf, cfg, to_file=None):
         return
     q = lambda s: str(s).replace("'", "''")
     files = ','.join("'%s'" % q(f) for f in pngs)
+    import time as _t
+    docname = 'Kitab Mawqut %s x%d %s' % (paper, copies, _t.strftime('%H%M%S'))
     script = r"""
 $ErrorActionPreference = 'Stop'
 try {
@@ -119,7 +124,7 @@ $pd = New-Object System.Drawing.Printing.PrintDocument
 if ('%s' -ne '') { $pd.PrinterSettings.PrinterName = '%s' }
 $pd.PrinterSettings.Copies = %d
 $pd.PrinterSettings.Collate = $true
-$pd.DocumentName = 'Al-Kitab Al-Mawqut'
+$pd.DocumentName = '%s'
 if (%s) {
   if (-not $pd.PrinterSettings.CanDuplex) { throw 'DUPLEX-NO' }
   $pd.PrinterSettings.Duplex = [System.Drawing.Printing.Duplex]::Vertical      # long edge (portrait book)
@@ -141,12 +146,27 @@ $pd.add_PrintPage({ param($s,$e)
   $e.HasMorePages = ($global:i -lt $files.Count) })
 $pd.add_BeginPrint({ $global:i = 0 })
 %s
-$pd.Print(); 'PRINT-OK'
+$pd.Print()
+# wait until the job has left the Windows queue, so the next job (other paper size) is never mixed with it
+if ('%s' -ne '' -and -not $pd.PrinterSettings.PrintToFile) {
+  for ($k = 0; $k -lt 120; $k++) {
+    Start-Sleep -Milliseconds 1000
+    $j = Get-PrintJob -PrinterName '%s' -ErrorAction SilentlyContinue | Where-Object { $_.DocumentName -eq $pd.DocumentName }
+    if (-not $j) { break }
+    if ($j.JobStatus -match 'Error|Blocked|PaperOut|Offline') { 'PRINT-WARN ' + $j.JobStatus; break }
+  } }
+'PRINT-OK'
 } catch { 'PRINT-ERR ' + $_.Exception.Message }
-""" % (files, q(printer), q(printer), copies, '$true' if duplex else '$false', paper,
-       ("$pd.PrinterSettings.PrintToFile = $true; $pd.PrinterSettings.PrintFileName = '%s'" % q(to_file)) if to_file else '')
-    r = _ps(script, timeout=180 + 20 * len(pngs))
+""" % (files, q(printer), q(printer), copies, q(docname), '$true' if duplex else '$false', paper,
+       ("$pd.PrinterSettings.PrintToFile = $true; $pd.PrinterSettings.PrintFileName = '%s'" % q(to_file)) if to_file else '',
+       q(printer), q(printer))
+    r = _ps(script, timeout=320 + 20 * len(pngs))
     out = r.stdout or ''
+    import logging
+    logging.getLogger('mawqut').info('print job «%s» on %s: %s', docname, printer,
+                                      ' '.join(l for l in out.splitlines() if l.startswith('PRINT-')) or out[-200:])
+    if 'PRINT-WARN' in out:
+        raise RuntimeError('الطابعة أوقفت الطلب %s: %s' % (paper, out.split('PRINT-WARN', 1)[1].split()[0]))
     if 'PRINT-OK' not in out:
         err = [l for l in out.splitlines() if l.startswith('PRINT-ERR')]
         if err and 'DUPLEX-NO' in err[0]:
