@@ -226,20 +226,19 @@ def background_loop(interval_min=20):
     except OSError: pass
 
 
-def hizb_month_files(cfg, start_day, first_hizb=1, days=30, theme=None, progress=None):
-    """30 hizb pages (2 hizbs/day = one khatma) -> list of PNGs + one multi-page A4 PDF."""
+def hizb_month_files(cfg, start_day=None, first_hizb=1, days=30, theme=None, progress=None):
+    """30 reusable hizb pages (2 hizbs/day = one khatma) -> list of PNGs + one multi-page A4 PDF."""
     from PIL import Image
     from . import ahzab
     theme = theme or cfg.get('theme', 'glass')
     pngs = []
     for k in range(days):
-        day = start_day + D(days=k)
         f = ahzab.nxt(first_hizb, 2 * k)
-        H = ahzab.day_model(cfg, day, f, ahzab.nxt(f))
+        H = ahzab.day_model(cfg, None, f, ahzab.nxt(f))
         png, _ = render_files(H, cfg, theme, pdf=False, paper='A4', sheet='hizb')
         pngs.append(png)
         if progress: progress(k + 1, days)
-    pdf = os.path.join(paths.OUT, 'ahzab-%s-%s.pdf' % (start_day.isoformat(), theme))
+    pdf = os.path.join(paths.OUT, 'ahzab-%s-%02d-%s.pdf' % (ahzab.riwaya(cfg), first_hizb, theme))
     ims = [Image.open(p).convert('RGB') for p in pngs]
     ims[0].save(pdf, 'PDF', resolution=ims[0].width / 8.27, save_all=True, append_images=ims[1:])
     return pngs, pdf

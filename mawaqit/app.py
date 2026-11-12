@@ -60,8 +60,7 @@ def apply(changes):
 
 
 def hizb_model(d):
-    day = dt.date.fromisoformat(d.get('hizb_date') or dt.date.today().isoformat())
-    return ahzab.day_model(d, day, d.get('hizb_fajr') or 1, d.get('hizb_isha') or ahzab.nxt(d.get('hizb_fajr') or 1))
+    return ahzab.day_model(d, None, d.get('hizb_fajr') or 1, d.get('hizb_isha') or ahzab.nxt(d.get('hizb_fajr') or 1))
 
 
 def save_image(data_url):
@@ -70,8 +69,18 @@ def save_image(data_url):
     im = Image.open(io.BytesIO(raw)).convert('RGB')
     w, h = im.size; s = min(w, h)
     im = im.crop(((w - s) // 2, (h - s) // 2, (w - s) // 2 + s, (h - s) // 2 + s)).resize((360, 360), Image.LANCZOS)
-    p = os.path.join(paths.USER, 'mosque.jpg'); im.save(p, quality=88)
+    os.makedirs(os.path.join(paths.USER, 'mosques'), exist_ok=True)
+    p = os.path.join(paths.USER, 'mosques', 'mosque-%d.jpg' % int(time.time() * 1000)); im.save(p, quality=88)
     return p
+
+
+def remember_mosque(d):
+    """Keep the current mosque (name + image) in the saved list, so it can be picked again later."""
+    name = (d.get('mosque_name') or '').strip()
+    if not name: return
+    lst = [m for m in (d.get('mosques') or []) if m.get('name') != name]
+    lst.insert(0, dict(name=name, image=d.get('mosque_image') or ''))
+    d['mosques'] = lst[:50]
 
 
 def html_page():
@@ -133,6 +142,16 @@ class H(BaseHTTPRequestHandler):
                 d = apply(data)
                 return self.send(200, dict(ok=True, cfg=d, month=month_info(d),
                                            cities=config.cities(d['country']) if 'country' in data else None))
+            if self.path == '/api/mosque':
+                d = draft(); lst = d.setdefault('mosques', [])
+                if 'pick' in data and 0 <= int(data['pick']) < len(lst):
+                    m = lst[int(data['pick'])]
+                    img = m.get('image') or ''
+                    d.update(mosque_name=m['name'], mosque_image=img if (img and os.path.exists(img)) else '')
+                elif 'remove' in data and 0 <= int(data['remove']) < len(lst):
+                    lst.pop(int(data['remove']))
+                    saved = config.load(); saved['mosques'] = lst; config.save(saved)
+                return self.send(200, dict(ok=True, cfg=d))
             if self.path == '/api/image':
                 d = apply({'mosque_image': save_image(data['data']) if data.get('data') else ''})
                 return self.send(200, dict(ok=True, cfg=d))
@@ -140,12 +159,13 @@ class H(BaseHTTPRequestHandler):
                 d = apply(data)
                 if d.get('auto_print') and not config.print_jobs(d):
                     return self.send(200, dict(ok=False, msg='حدّد عدد الأوراق والطابعة (A4 أو A3) لتفعيل الطباعة التلقائية'))
+                remember_mosque(d)
                 config.save(d); STATE['cfg'] = json.loads(json.dumps(d))
                 want = bool(d.get('auto_print'))
                 if want != core.task_on():
                     ok, msg = core.set_task(want, model(d)['key'] if want else None)
                     if not ok: return self.send(200, dict(ok=False, msg=msg))
-                return self.send(200, dict(ok=True, msg='تم الحفظ ✓', task=core.task_on()))
+                return self.send(200, dict(ok=True, msg='تم الحفظ ✓', task=core.task_on(), cfg=d))
             if self.path in ('/api/print', '/api/pdf'):
                 d = draft()
                 if self.path == '/api/pdf':
@@ -169,7 +189,7 @@ class H(BaseHTTPRequestHandler):
                     return self.send(200, dict(ok=False, msg='العمل جارٍ، انتظر قليلاً'))
                 d = apply({'riwaya': data.get('riwaya')}) if data.get('riwaya') else draft()
                 saved = config.load(); saved['riwaya'] = ahzab.riwaya(d); config.save(saved)
-                start = dt.date.fromisoformat(data.get('start') or model(d)['start'].isoformat())
+                start = None
                 first = max(1, min(60, int(data.get('first') or 1)))
                 copies = max(1, min(20, int(data.get('copies') or 1)))
                 duplex = bool(data.get('duplex', True))

@@ -8,12 +8,12 @@ DEFAULTS = dict(
     tune=dict(fajr=0, sunrise=0, dhuhr=0, asr=0, maghrib=0, isha=0),
     lang2='fr', mosque_name='', mosque_image='', dua='',
     theme='glass', printer='', paper='A4', copies=1, auto_print=False,
-    a4_copies=1, a4_printer='', a3_copies=0, a3_printer='', hizb_fajr=1, hizb_isha=2,
+    a4_copies=1, a4_printer='', a3_copies=0, a3_printer='', hizb_fajr=1, hizb_isha=2, mosques=[],
 )
 
 
 def load():
-    cfg = dict(DEFAULTS)
+    cfg = json.loads(json.dumps(DEFAULTS))      # deep copy (lists inside)
     saved = {}
     if os.path.exists(paths.CONFIG_F):
         try:
@@ -26,6 +26,8 @@ def load():
         big = saved.get('paper') == 'A3'
         cfg.update(a4_copies=0 if big else n, a3_copies=n if big else 0,
                    a4_printer=saved.get('printer', ''), a3_printer=saved.get('printer', ''))
+    if not cfg.get('mosques') and (cfg.get('mosque_name') or '').strip():
+        cfg['mosques'] = [dict(name=cfg['mosque_name'].strip(), image=cfg.get('mosque_image') or '')]
     return cfg
 
 

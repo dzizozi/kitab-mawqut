@@ -145,34 +145,34 @@ def render_html(M, cfg, theme=None, font_base='/fonts/'):
 HIZB_CSS = """
 .hz-meta { justify-content: center; gap: 18px; font-size: 15px; padding: 6px 10px }
 .hz { flex: 1 1 auto !important; display: grid; grid-template-rows: 1fr 1fr; gap: 14px; min-height: 0 }
-.hz .card { display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 18px 30px; gap: 10px }
+.hz .card { display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 16px 30px; gap: 6px }
 .hz .when { display: flex; align-items: center; gap: 12px; font-size: 22px; font-weight: 700 }
 .hz .when small { font-family: 'Segoe UI', 'UILatin'; font-size: 13px; font-weight: 600; opacity: .7; letter-spacing: .5px }
-.hz .when .tm { font-family: 'Segoe UI', 'UILatin'; font-size: 15px; padding: 2px 10px; border-radius: 999px; border: 1px solid currentColor; opacity: .85 }
-.hz .num { font-family: 'Noto Kufi Arabic'; font-weight: 800; font-size: 66px; line-height: 1.15 }
+.hz .num { font-family: 'Noto Kufi Arabic'; font-weight: 800; font-size: 52px; line-height: 1.15 }
 .hz .num small { display: block; margin-top: 6px; font-family: 'Segoe UI', 'UILatin'; font-size: 15px; font-weight: 600; letter-spacing: 1px; opacity: .7 }
-.hz .card { gap: 6px !important }
-.hz .num { font-size: 52px !important }
 .hz .rng { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100% }
-.hz .rng .lb { font-size: 12px; font-weight: 700; padding: 1px 12px; border-radius: 999px; border: 1px solid currentColor; opacity: .65; margin-top: 4px }
+.hz .rng .lb { display: inline-flex; gap: 8px; align-items: center; font-size: 14px; font-weight: 700; padding: 2px 16px; border-radius: 999px; border: 1px solid currentColor; margin-top: 6px }
+.hz .rng .lb i { font-style: normal; opacity: .65 } .hz .rng .lb b { font-family: 'Noto Kufi Arabic' }
 .hz .words { font-family: 'Amiri'; font-weight: 700; font-size: 31px; line-height: 1.55; text-align: center; width: 100%; padding: 0 4% }
 .hz .words.end { font-size: 27px; opacity: .85 }
 .hz .words::before { content: '\\FD3F  '; opacity: .55 } .hz .words::after { content: '  \\FD3E'; opacity: .55 }
-.hz .where { font-size: 15px; opacity: .8 }
 .hz-dua { text-align: center; font-family: 'Amiri'; font-size: 17px; padding: 4px 10px }
 """
 
+ORD_AR = ['الأول', 'الثاني', 'الثالث', 'الرابع', 'الخامس', 'السادس', 'السابع', 'الثامن', 'التاسع', 'العاشر',
+          'الحادي عشر', 'الثاني عشر', 'الثالث عشر', 'الرابع عشر', 'الخامس عشر', 'السادس عشر', 'السابع عشر',
+          'الثامن عشر', 'التاسع عشر', 'العشرون', 'الحادي والعشرون', 'الثاني والعشرون', 'الثالث والعشرون',
+          'الرابع والعشرون', 'الخامس والعشرون', 'السادس والعشرون', 'السابع والعشرون', 'الثامن والعشرون',
+          'التاسع والعشرون', 'الثلاثون']
+
 
 def render_hizb_html(H, cfg, theme=None, font_base='/fonts/'):
-    """One-page sheet: today's hizb after Sobh and after Isha, with the date and the opening words."""
+    """Reusable daily-reading sheet (no dates): the hizb after Sobh and the one after Isha, with the sura,
+    verse number and words where each hizb starts and ends."""
     theme = theme or cfg.get('theme', 'glass')
     L = 1 if cfg.get('lang2', 'fr') == 'fr' else 2
-    l2 = 'fr' if L == 1 else 'en'
     e = html.escape
-    d = H['date']
-    G_AR = greg_ar(cfg['country'])
-    hijri = ('%d %s %d هـ' % (H['hday'], HIJRI['ar'][H['mois'] - 1], H['annee'])) if H['hday'] else ''
-    hijri2 = ('%d %s %d' % (H['hday'], HIJRI[l2][H['mois'] - 1], H['annee'])) if H['hday'] else ''
+    day = (H['fajr']['n'] + 1) // 2                      # day of the monthly khatma (2 hizbs a day)
     mosque = (cfg.get('mosque_name') or '').strip()
     img = image_data(cfg.get('mosque_image'))
     emblem = ('<div class="emblem photo"><img src="%s"></div>' % img) if img else '<div class="emblem">%s</div>' % CRESCENT
@@ -184,40 +184,33 @@ def render_hizb_html(H, cfg, theme=None, font_base='/fonts/'):
         left = ('<div class="h-left"><div class="h-title">%s %s</div><div class="h-sub">%s</div></div>'
                 % (UI['in_city'][0], e(city_ar), e(cfg.get('city_name', ''))))
 
-    def card(h, label, label2, t):
-        s1, s2 = h['sura_name'], h['end_sura_name']
-        where = ('من أول ' if h['start_of_sura'] else 'من ') + 'سورة ' + s1
-        if h['end_of_sura']:
-            where += ' إلى آخر ' + ('السورة' if s2 == s1 else 'سورة ' + s2)
-        elif s2 != s1:
-            where += ' إلى سورة ' + s2
-        tm = '<span class="tm">%s</span>' % t if t else ''
-        return ('<div class="panel card"><div class="when">%s <small>%s</small>%s</div>'
+    def card(h, label, label2):
+        return ('<div class="panel card"><div class="when">%s <small>%s</small></div>'
                 '<div class="num month">الحزب %d<small>Hizb %d / 60</small></div>'
-                '<div class="rng"><span class="lb">بدايته</span><div class="words">%s</div>'
-                '<span class="lb">نهايته</span><div class="words end">%s</div></div>'
-                '<div class="where">%s</div></div>'
-                % (label, label2, tm, h['n'], h['n'], e(h['words']), e(h['end_words']), e(where)))
+                '<div class="rng"><span class="lb"><i>بدايته</i> سورة %s · الآية <b>%d</b></span><div class="words">%s</div>'
+                '<span class="lb"><i>نهايته</i> سورة %s · الآية <b>%d</b></span><div class="words end">%s</div></div></div>'
+                % (label, label2, h['n'], h['n'], e(h['sura_name']), h['aya'], e(h['words']),
+                   e(h['end_sura_name']), h['end_aya'], e(h['end_words'])))
 
-    t = H['times'] or [None] * 6
-    src = ('رواية ورش عن نافع · تقسيم الأحزاب في المصحف المغربي · النص: مجمع الملك فهد' if H.get('riwaya') == 'warsh'
-           else 'رواية حفص عن عاصم · النص: مشروع تنزيل tanzil.net')
-    return f'''<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>حزب اليوم {d.isoformat()}</title>
+    warsh = H.get('riwaya') == 'warsh'
+    src = ('رواية ورش عن نافع · تقسيم الأحزاب وترقيم الآيات حسب المصحف المغربي · النص: مجمع الملك فهد' if warsh
+           else 'رواية حفص عن عاصم · ترقيم الآيات الكوفي · النص: مشروع تنزيل tanzil.net')
+    day_ar = ORD_AR[day - 1] if 1 <= day <= 30 else str(day)
+    return f'''<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>حزب اليوم {day}</title>
 <style>{font_css(font_base)}{themes.css_for(theme)}{HIZB_CSS}</style></head><body class="t-{theme}">{DEFS}{BGDECO}
 <div class="page">
  <div class="panel head">
-  <div class="h-right"><div class="h-title">حزب اليوم</div><div class="h-sub">{'Hizb du jour' if L == 1 else "Today's hizb"}</div></div>
-  <div class="h-mid">{emblem}<div class="month">{DAYS['ar'][d.weekday()]}</div>
-   <div class="month-fr">{DAYS[l2][d.weekday()]} {fmt_date(d)}</div></div>
+  <div class="h-right"><div class="h-title">الحزب الراتب</div><div class="h-sub">{'Lecture quotidienne du Coran' if L == 1 else 'Daily Quran reading'}</div></div>
+  <div class="h-mid">{emblem}<div class="month">اليوم {day_ar}</div>
+   <div class="month-fr">{'Jour' if L == 1 else 'Day'} {day} / 30</div></div>
   {left}
   {MOSQUE}
  </div>
- <div class="meta hz-meta"><span><b>{e(hijri)}</b></span><span>{d.day} {G_AR[d.month - 1]} {d.year}</span>
-  <span class="fr"><bdi dir="ltr">{e(hijri2)}</bdi></span></div>
+ <div class="meta hz-meta"><span><b>ختمة كل شهر</b> · حزبان في اليوم</span><span>{'رواية ورش عن نافع' if warsh else 'رواية حفص عن عاصم'}</span></div>
  <div class="hz">
-  {card(H['fajr'], 'بعد صلاة الصبح', 'Après Fajr' if L == 1 else 'After Fajr', t[0])}
-  {card(H['isha'], 'بعد صلاة العشاء', "Après Ichaa" if L == 1 else 'After Isha', t[5])}
+  {card(H['fajr'], 'بعد صلاة الصبح', 'Après Fajr' if L == 1 else 'After Fajr')}
+  {card(H['isha'], 'بعد صلاة العشاء', "Après Ichaa" if L == 1 else 'After Isha')}
  </div>
  <div class="hz-dua dua">{e(cfg.get('dua', '') or 'خيركم من تعلّم القرآن وعلّمه')}</div>
- <div class="foot"><span>{src}</span><span>{fmt_date(d)}</span></div>
+ <div class="foot"><span>{src}</span><span>{day} / 30</span></div>
 </div></body></html>'''
