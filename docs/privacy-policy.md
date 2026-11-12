@@ -12,4 +12,4 @@ L'application ne collecte, ne stocke sur un serveur ni ne partage aucune donnée
 **English**
 The app collects no personal data and shares nothing with third parties: no accounts, ads, analytics or trackers. Settings stay on the device. The only network access downloads official prayer timetables from habous.gov.ma (Morocco). Optional reminders are local notifications.
 
-Contact: https://github.com/dzizozi/al-kitab-al-mawqut/issues
+Contact: https://github.com/dzizozi/kitab-mawqut/issues
