@@ -52,7 +52,7 @@ main { display: grid; grid-template-rows: auto 1fr; gap: var(--gap); min-height:
 .th iframe { position: absolute; top: 0; right: 0; width: 794px; height: 1123px; border: 0; transform-origin: top right; pointer-events: none }
 .th span { display: block; font-size: 11.5px; font-weight: 700; margin-top: 5px } .th small { font-size: 10px; opacity: .65; font-family: 'Segoe UI', 'UILatin' }
 .th.on { border-color: var(--accent); background: var(--sel) }
-.preview { min-height: 0; display: flex; justify-content: center; align-items: flex-start; overflow: hidden; position: relative }
+.preview { min-height: 0; display: flex; justify-content: center; align-items: flex-start; overflow: hidden; position: relative; padding-top: 58px !important }
 .frame { width: 794px; height: 1123px; transform-origin: top center; border: 0; background: #fff; box-shadow: 0 10px 40px rgba(0,0,0,.25); flex: none }
 .busy::after { content: ''; position: absolute; inset: 0; background: rgba(255,255,255,.35) }
 .ico { width: 19px; height: 19px; flex: none; fill: var(--icofill); stroke: var(--ico); stroke-width: var(--icow); stroke-linecap: round; stroke-linejoin: round }
@@ -62,6 +62,11 @@ h1 .ico { width: 28px; height: 28px }
 .vtabs button { border: 0; background: transparent; padding: 6px 12px; border-radius: 9px; font: inherit; font-size: 12px; cursor: pointer; color: inherit }
 .vtabs button.on { background: var(--accent); color: #fff; font-weight: 700 }
 .hz-sel { font-size: 12px }
+.sizebar { position: absolute; top: 10px; inset-inline-end: 10px; z-index: 3; display: flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 12px;
+  background: rgba(255,255,255,.8); backdrop-filter: blur(10px); box-shadow: 0 2px 10px rgba(0,0,0,.08); font-size: 12px }
+.sizebar select { width: auto; font-size: 12px; padding: 4px 6px } .sizebar input[type=range] { width: 150px }
+.sizebar input[type=number] { width: 62px; font-size: 12px; padding: 4px; text-align: center; font-family: 'Segoe UI' }
+.sizebar button { border: 0; background: transparent; font-size: 16px; cursor: pointer }
 .fontrow { margin-bottom: 6px } .fontrow select { font-size: 12px }
 .fsample { font-size: 19px; line-height: 1.6; padding: 2px 8px; margin-top: 3px; border-radius: 8px; background: rgba(255,255,255,.45); text-align: center; white-space: nowrap; overflow: hidden }
 .sizes { display: grid; grid-template-columns: auto 1fr 38px; gap: 4px 8px; align-items: center; font-size: 12px }
@@ -167,13 +172,8 @@ body[data-theme=y2k] h1 { background: linear-gradient(90deg,#ff2fb8,#7a00ff,#00b
   <div class="fontrow"><label>أسماء الشهور والدعاء</label><select id="font_deco"></select><div class="fsample" id="s_font_deco">جمادى الثانية</div></div>
   <div class="fontrow"><label>النصوص</label><select id="font_text"></select><div class="fsample" id="s_font_text">المناسبات والأعياد</div></div>
   <div class="fontrow"><label>الآيات (ورقة الحزب)</label><select id="font_quran"></select><div class="fsample q" id="s_font_quran">سَيَقُولُ اُ۬لسُّفَهَآءُ مِنَ اَ۬لنَّاسِ</div></div>
-  <h3 class="sub">أحجام الخطوط</h3>
-  <div class="sizes">
-   <label>العناوين</label><input type="range" id="size_title" min="60" max="500" step="10"><b id="v_size_title"></b>
-   <label>جدول المواقيت</label><input type="range" id="size_table" min="60" max="500" step="10"><b id="v_size_table"></b>
-   <label>البطاقات والتذييل</label><input type="range" id="size_cards" min="60" max="500" step="10"><b id="v_size_cards"></b>
-  </div>
   <button class="btn sec small" style="margin-top:8px" onclick="resetFonts()">الخطوط والأحجام الأصلية</button>
+  <div class="status" style="margin-top:6px">لتغيير الحجم: اضغط على السطر في المعاينة، ثم حرّك المقبض أو اكتب الرقم في الشريط أعلى المعاينة.</div>
  </div>
 
  <div class="panel"><h2><svg class="ico"><use href="#i-print"/></svg>الطباعة</h2>
@@ -197,9 +197,6 @@ body[data-theme=y2k] h1 { background: linear-gradient(90deg,#ff2fb8,#7a00ff,#00b
   </div>
   <label>بعد صلاة الصبح</label><select id="hizb_fajr" class="hz-sel"></select>
   <label>بعد صلاة المغرب</label><select id="hizb_isha" class="hz-sel"></select>
-  <h3 class="sub">حجم كل سطر في ورقة الحزب</h3>
-  <div class="sizes" id="hzsizes"></div>
-  <button class="btn sec small" style="margin-top:6px" onclick="change(Object.fromEntries(S.hz_lines.map(([k]) => [k, 100])))">الأحجام الأصلية للأسطر</button>
   <div class="row" style="margin-top:10px">
    <button class="btn sec" onclick="hizbNext()" title="الحزبان التاليان">اليوم التالي ⟵</button>
    <button class="btn sec" onclick="setView('hizb')">معاينة</button></div>
@@ -222,7 +219,10 @@ body[data-theme=y2k] h1 { background: linear-gradient(90deg,#ff2fb8,#7a00ff,#00b
 
 <main>
  <div class="panel"><h2><svg class="ico"><use href="#i-brush"/></svg>التصميم</h2><div class="gallery" id="gallery"></div></div>
- <div class="panel preview" id="pv"><div class="vtabs"><button id="v_month" onclick="setView('month')">ورقة المواقيت</button><button id="v_hizb" onclick="setView('hizb')">ورقة الحزب</button></div><iframe class="frame" id="frame"></iframe></div>
+ <div class="panel preview" id="pv"><div class="sizebar" title="اضغط على أي سطر في الورقة لاختياره">
+  <svg class="ico"><use href="#i-brush"/></svg><span>حجم</span><select id="sz_target"></select>
+  <input type="range" id="sz_range" min="60" max="500" step="5"><input type="number" id="sz_num" min="60" max="500" step="5"><b>%</b>
+  <button id="sz_reset" title="100%">↺</button></div><div class="vtabs"><button id="v_month" onclick="setView('month')">ورقة المواقيت</button><button id="v_hizb" onclick="setView('hizb')">ورقة الحزب</button></div><iframe class="frame" id="frame"></iframe></div>
 </main>
 <div id="toast"></div>
 
@@ -235,7 +235,7 @@ function toast(t, ms) { const e = $('toast'); e.textContent = t; e.classList.add
 function isLand() { return VIEW === 'hizb' && S && S.cfg.hizb_layout === 'landscape'; }
 function fit() { const pv = $('pv'), f = $('frame'); const W = isLand() ? 1123 : 794, H = isLand() ? 794 : 1123;
   f.style.width = W + 'px'; f.style.height = H + 'px';
-  const s = Math.min((pv.clientHeight - 28) / H, (pv.clientWidth - 28) / W);
+  const s = Math.min((pv.clientHeight - 80) / H, (pv.clientWidth - 28) / W);
   f.style.transform = 'scale(' + s + ')'; f.style.marginBottom = (-(1 - s) * H) + 'px'; f.style.marginLeft = f.style.marginRight = (-(1 - s) * W / 2) + 'px';
   document.querySelectorAll('.th .mini').forEach(m => { m.style.aspectRatio = W + '/' + H; const fr = m.querySelector('iframe');
     fr.style.width = W + 'px'; fr.style.height = H + 'px'; fr.style.transform = 'scale(' + (m.clientWidth / W) + ')'; }); }
@@ -243,10 +243,11 @@ let VIEW = 'month';
 function sheetUrl() { return VIEW === 'hizb' ? '/hizb-sheet' : '/sheet'; }
 function refresh(all) {
   const t = Date.now();
+  $('frame').onload = attachPick;
   $('frame').src = sheetUrl() + '?theme=' + S.cfg.theme + '&t=' + t;
   if (all) document.querySelectorAll('.th iframe').forEach(f => f.src = sheetUrl() + '?theme=' + f.dataset.k + '&t=' + t);
 }
-function setView(v) { VIEW = v; setTimeout(fit, 0); $('v_month').classList.toggle('on', v === 'month'); $('v_hizb').classList.toggle('on', v === 'hizb'); refresh(true); }
+function setView(v) { VIEW = v; setTimeout(fit, 0); if (S && S.fonts) sizeUI(); $('v_month').classList.toggle('on', v === 'month'); $('v_hizb').classList.toggle('on', v === 'hizb'); refresh(true); }
 const today = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10); };
 const hnext = (n, k = 1) => ((+n - 1 + k) % 60) + 1;
 function hizbData() { return {riwaya: $('riwaya').value, hizb_fajr: +$('hizb_fajr').value, hizb_isha: +$('hizb_isha').value}; }
@@ -275,7 +276,7 @@ async function loadAhzab() {
     $('hizb_fajr').innerHTML = $('hizb_isha').innerHTML = opts;
     $('hizb_fajr').value = f; $('hizb_isha').value = i;
 }
-const FONT_KEYS = ['font_title','font_deco','font_text','font_quran']; let SIZE_KEYS = ['size_title','size_table','size_cards'];
+const FONT_KEYS = ['font_title','font_deco','font_text','font_quran'];
 const FONT_DEF = {font_title: 'noto_kufi', font_deco: 'amiri', font_text: 'noto_sans', font_quran: 'auto'};
 function fontsInit() {
   const st = document.createElement('style');
@@ -286,12 +287,41 @@ function fontsInit() {
     $(k).innerHTML = (k === 'font_quran' ? '<option value="auto">تلقائي – العثماني حسب الرواية (ورش / حفص)</option>' : '') + opts;
     $(k).onchange = () => { const v = $(k).value; S.cfg[k] = v; fontsUI(); change({[k]: v}, true); };
   }
-  $('hzsizes').innerHTML = S.hz_lines.map(([k, lab]) => `<label>${lab}</label><input type="range" id="${k}" min="60" max="500" step="10"><b id="v_${k}"></b>`).join('');
-  for (const [k] of S.hz_lines) SIZE_KEYS.push(k);
-  for (const k of SIZE_KEYS) {
-    $(k).oninput = () => { $('v_' + k).textContent = $(k).value + '%'; };
-    $(k).onchange = () => change({[k]: +$(k).value}, true);
-  }
+  sizeInit();
+}
+// ---- one size control: pick a line by clicking it in the preview, then slide or type the value
+const SZ_MONTH = [['size_title', 'رأس الورقة (العنوان والشهر والمسجد)', '.head'], ['size_table', 'جدول المواقيت', '.tbl'],
+                  ['size_cards', 'المناسبات والشهور القادمة والتذييل', '.bottom, .meta, .foot']];
+const SZ_HIZB = [['size_title', 'رأس الورقة', '.head'], ['hz_when', 'الصلاة (بعد صلاة الصبح / المغرب)', '.when'], ['hz_num', 'رقم الحزب', '.num'],
+                 ['hz_lb1', 'سطر «بدايته»', '.lb1'], ['hz_start', 'كلمات البداية', '.words:not(.end)'],
+                 ['hz_lb2', 'سطر «نهايته»', '.lb2'], ['hz_end', 'كلمات النهاية', '.words.end']];
+let SZ = 'size_table';
+const szList = () => VIEW === 'hizb' ? SZ_HIZB : SZ_MONTH;
+function szVal(k) { return S.cfg[k] || ((k === 'hz_start' || k === 'hz_end') && S.cfg.size_quran) || 100; }
+function sizeUI() {
+  const list = szList(); if (!list.some(([k]) => k === SZ)) SZ = list[VIEW === 'hizb' ? 4 : 1][0];
+  $('sz_target').innerHTML = list.map(([k, lab]) => `<option value="${k}">${lab}</option>`).join('');
+  $('sz_target').value = SZ; $('sz_range').value = $('sz_num').value = szVal(SZ); markPick();
+}
+function szSet(v) { v = Math.max(60, Math.min(500, Math.round(+v || 100))); $('sz_range').value = $('sz_num').value = v;
+  S.cfg[SZ] = v; change({[SZ]: v}, false); }
+function sizeInit() {
+  $('sz_target').onchange = () => { SZ = $('sz_target').value; sizeUI(); };
+  $('sz_range').oninput = () => { $('sz_num').value = $('sz_range').value; };
+  $('sz_range').onchange = () => szSet($('sz_range').value);
+  $('sz_num').onchange = () => szSet($('sz_num').value);
+  $('sz_reset').onclick = () => szSet(100);
+}
+function markPick() {      // outline the chosen line in the preview
+  const d = $('frame').contentDocument; if (!d || !d.body) return;
+  d.querySelectorAll('.kmpick').forEach(e => e.classList.remove('kmpick'));
+  const it = szList().find(([k]) => k === SZ); if (it) d.querySelectorAll(it[2]).forEach(e => e.classList.add('kmpick'));
+}
+function attachPick() {
+  const d = $('frame').contentDocument; if (!d || !d.body) return;
+  const st = d.createElement('style'); st.textContent = '.kmpick{outline:2px dashed #e0a100 !important;outline-offset:3px} body *{cursor:pointer}'; d.head.appendChild(st);
+  d.addEventListener('click', ev => { for (const [k, , sel] of szList()) { if (ev.target.closest(sel)) { SZ = k; sizeUI(); return; } } });
+  markPick();
 }
 function fontsUI() {
   for (const k of FONT_KEYS) {
@@ -299,10 +329,9 @@ function fontsUI() {
     let v = $(k).value; if (v === 'auto') v = ($('riwaya').value === 'hafs') ? 'kfgqpc_hafs' : 'kfgqpc_warsh';
     $('s_' + k).style.fontFamily = `'pv-${v}', serif`;
   }
-  for (const k of SIZE_KEYS) { const v = S.cfg[k] || ((k === 'hz_start' || k === 'hz_end') && S.cfg.size_quran) || 100;
-    $(k).value = v; $('v_' + k).textContent = v + '%'; }
+  sizeUI();
 }
-function resetFonts() { change(Object.assign({}, FONT_DEF, {size_quran: 100}, Object.fromEntries(SIZE_KEYS.map(k => [k, 100])))); }
+function resetFonts() { change(Object.assign({}, FONT_DEF, {size_quran: 100}, Object.fromEntries([...SZ_MONTH, ...SZ_HIZB].map(([k]) => [k, 100])))); }
 function mosquesUI() {
   const list = S.cfg.mosques || [], cur = (S.cfg.mosque_name || '').trim();
   $('mosques').innerHTML = `<option value="">${list.length ? '— اختر مسجداً محفوظاً (' + list.length + ') —' : '— لا توجد مساجد محفوظة بعد —'}</option>` +

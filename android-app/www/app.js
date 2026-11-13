@@ -161,4 +161,20 @@ async function init() {
   window.addEventListener('resize', scaleFrames);
   await refresh(); setTheme(cfg.theme); scaleFrames();
 }
-init().catch(e => { console.error(e); toast('خطأ: ' + e.message, 8000); });
+// ---------------------------------------------------------------- first start: phone or mosque display (TV)
+function chooseMode() {
+  return new Promise(ok => {
+    const box = $('modepick'); box.classList.remove('hide');
+    const pick = m => { localStorage.setItem('mode', m); box.classList.add('hide'); ok(m); };
+    $('m-phone').onclick = () => pick('phone'); $('m-tv').onclick = () => pick('tv');
+    // a TV box has no touch screen: start with the focus on the first button for the remote control
+    setTimeout(() => $(matchMedia('(pointer: coarse)').matches ? 'm-phone' : 'm-tv').focus(), 50);
+  });
+}
+async function boot() {
+  const mode = localStorage.getItem('mode') || await chooseMode();
+  if (mode === 'tv') { const tv = await import('./tv.js'); await tv.start(); return; }
+  $('b-tvmode').onclick = () => { localStorage.setItem('mode', 'tv'); location.reload(); };
+  await init();
+}
+boot().catch(e => { console.error(e); toast('خطأ: ' + e.message, 8000); });

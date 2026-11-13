@@ -56,6 +56,12 @@ nav button.on { opacity: 1; color: var(--accent) }
   border-radius: 24px; font-size: 13.5px; font-weight: 700; opacity: 0; transition: .25s; pointer-events: none; z-index: 9; max-width: 88% }
 #toast.on { opacity: 1 }
 .hide { display: none !important }
+#modepick { position: fixed; inset: 0; z-index: 20; background: linear-gradient(140deg,#0f5e4f,#0a3d33); display: grid; place-items: center; padding: 24px }
+#modepick .mp { width: 100%; max-width: 560px; text-align: center; color: #fff }
+#modepick h1 { font-size: 30px; margin-bottom: 6px } #modepick p { opacity: .85; margin-bottom: 18px }
+#modepick button { display: block; width: 100%; margin: 12px 0; padding: 18px; border-radius: 18px; border: 3px solid transparent; background: rgba(255,255,255,.12);
+  color: #fff; font: inherit; text-align: center; cursor: pointer } #modepick button b { display: block; font-size: 20px } #modepick button span { font-size: 13px; opacity: .8 }
+#modepick button:focus { outline: none; border-color: #f5d58a; background: rgba(255,255,255,.22) } #modepick .small { font-size: 12px; opacity: .6; margin-top: 10px }
 
 body[data-theme=glass] { --font: 'Noto Kufi Arabic', 'UILatin', sans-serif; --bg: linear-gradient(140deg,#cdeee3,#dfe5fb 50%,#f8e7cf); --fg: #17324a;
   --panel: rgba(255,255,255,.5); --border: 1px solid rgba(255,255,255,.8); --radius: 20px; --shadow: 0 8px 26px rgba(30,70,100,.14);
@@ -129,6 +135,10 @@ body[data-theme=y2k] { --font: 'Noto Kufi Arabic', 'UILatin', sans-serif; --bg: 
    <label class="switch"><span>ذكّرني عند دخول كل شهر هجري لطباعة الورقة</span><input type="checkbox" id="reminder"></label>
    <p class="note">إشعار مساء اليوم السابق لبداية الشهر المتوقعة، وآخر صباح اليوم الأول.</p>
   </div>
+  <div class="panel"><h2>وضع التطبيق</h2>
+   <p class="note">لتشغيل التطبيق على تلفاز المسجد (TV Box): مواقيت الصلاة والإقامة، والعدّ التنازلي، والأذكار، والحزب الراتب، والإعلانات.</p>
+   <button class="btn sec" id="b-tvmode" style="margin-top:8px">📺 التحويل إلى شاشة المسجد</button>
+  </div>
   <p class="note" style="text-align:center;opacity:.6" id="ver"></p>
  </section>
 </main>
@@ -138,6 +148,11 @@ body[data-theme=y2k] { --font: 'Noto Kufi Arabic', 'UILatin', sans-serif; --bg: 
  <button data-t="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-2.7-1.1l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.6 1.6 0 0 0 3.6 15H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.1-2.7l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.6 1.6 0 0 0 9.7 4.6V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 2.7 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0 1.1 2.7H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1.3z"/></svg>الإعدادات</button>
 </nav>
 <div id="toast"></div>
+<div id="modepick" class="hide"><div class="mp">
+ <h1>كتابا موقوتا</h1><p>أين سيعمل التطبيق؟</p>
+ <button id="m-phone"><b>📱 في الهاتف</b><span>ورقة المواقيت الشهرية وطباعتها، والتذكير</span></button>
+ <button id="m-tv"><b>📺 في المسجد (تلفاز / TV Box)</b><span>شاشة المواقيت والإقامة والأذكار والحزب الراتب</span></button>
+ <p class="small">يمكن تغيير الاختيار لاحقاً من الإعدادات.</p></div></div>
 <script src="lib/astronomy.browser.min.js"></script>
 <script type="module" src="app.js"></script>
 </body></html>
