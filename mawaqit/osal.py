@@ -56,14 +56,15 @@ def browser():
     raise RuntimeError('لم يُعثر على متصفح Chrome أو Chromium أو Edge أو Firefox لتصميم الورقة')
 
 
-def screenshot(html_path, png_path, scale, tmpdir):
+def screenshot(html_path, png_path, scale, tmpdir, landscape=False):
     os.makedirs(tmpdir, exist_ok=True)
+    W, H = (1123, 794) if landscape else (794, 1123)
     kind, exe = browser()
     url = 'file://' + ('/' if WIN else '') + os.path.abspath(html_path).replace('\\', '/')
     if kind == 'chromium':
         args = [exe, '--headless=new', '--disable-gpu', '--hide-scrollbars', '--no-first-run', '--no-default-browser-check',
                 '--disable-extensions', '--user-data-dir=' + tmpdir, '--run-all-compositor-stages-before-draw',
-                '--virtual-time-budget=4000', '--window-size=794,1123', '--force-device-scale-factor=%s' % scale,
+                '--virtual-time-budget=4000', '--window-size=%d,%d' % (W, H), '--force-device-scale-factor=%s' % scale,
                 '--screenshot=' + png_path, url]
         if LINUX: args.insert(1, '--no-sandbox')
         r = run_hidden(args, timeout=120)
@@ -72,11 +73,11 @@ def screenshot(html_path, png_path, scale, tmpdir):
             logging.getLogger('mawqut').warning('browser rc=%s %s', r.returncode, ((r.stderr or '') + (r.stdout or ''))[-400:])
     elif kind == 'firefox':
         open(os.path.join(tmpdir, 'user.js'), 'w').write('user_pref("layout.css.devPixelsPerPx", "%s");\n' % scale)
-        run_hidden([exe, '--headless', '--no-remote', '--profile', tmpdir, '--window-size=794,1123',
+        run_hidden([exe, '--headless', '--no-remote', '--profile', tmpdir, '--window-size=%d,%d' % (W, H),
                     '--screenshot', png_path, url], timeout=120)
     else:
         from . import mac_render
-        mac_render.snapshot(html_path, png_path, scale)
+        mac_render.snapshot(html_path, png_path, scale, W, H)
     if not os.path.exists(png_path):
         raise RuntimeError('تعذّر تصميم الورقة (%s)' % kind)
 
@@ -103,9 +104,15 @@ def print_sheet(png, pdf, cfg, to_file=None):
     copies = int(cfg.get('copies', 1))
     printer = cfg.get('printer', '')
     duplex = bool(cfg.get('duplex'))
+    try:
+        from PIL import Image
+        with Image.open(pngs[0]) as im0: landscape = im0.width > im0.height
+    except Exception:
+        landscape = False
     if not WIN:
         args = ['lp', '-n', str(copies), '-o', 'media=' + paper, '-o', 'fit-to-page', '-t', 'Al-Kitab Al-Mawqut']
-        if duplex: args += ['-o', 'sides=two-sided-long-edge', '-o', 'collate=true']
+        if duplex: args += ['-o', 'sides=two-sided-short-edge' if landscape else 'sides=two-sided-long-edge', '-o', 'collate=true']
+        if landscape: args += ['-o', 'landscape']
         if printer: args += ['-d', printer]
         r = run_hidden(args + [pdf], timeout=300)
         if r.returncode: raise RuntimeError((r.stderr or r.stdout or 'lp error').strip()[-300:])
@@ -125,12 +132,14 @@ if ('%s' -ne '') { $pd.PrinterSettings.PrinterName = '%s' }
 $pd.PrinterSettings.Copies = %d
 $pd.PrinterSettings.Collate = $true
 $pd.DocumentName = '%s'
+$pd.DefaultPageSettings.Landscape = %s
 if (%s) {
   if (-not $pd.PrinterSettings.CanDuplex) { throw 'DUPLEX-NO' }
-  $pd.PrinterSettings.Duplex = [System.Drawing.Printing.Duplex]::Vertical      # long edge (portrait book)
+  # long edge for portrait pages, short edge for landscape pages (keeps the back side upright)
+  if ($pd.DefaultPageSettings.Landscape) { $pd.PrinterSettings.Duplex = [System.Drawing.Printing.Duplex]::Horizontal }
+  else { $pd.PrinterSettings.Duplex = [System.Drawing.Printing.Duplex]::Vertical }
 }
 $pd.OriginAtMargins = $false
-$pd.DefaultPageSettings.Landscape = $false
 $pd.DefaultPageSettings.Margins = New-Object System.Drawing.Printing.Margins(0,0,0,0)
 foreach ($s in $pd.PrinterSettings.PaperSizes) { if ($s.Kind -eq '%s') { $pd.DefaultPageSettings.PaperSize = $s; $pd.PrinterSettings.DefaultPageSettings.PaperSize = $s } }
 $pd.add_PrintPage({ param($s,$e)
@@ -157,7 +166,7 @@ if ('%s' -ne '' -and -not $pd.PrinterSettings.PrintToFile) {
   } }
 'PRINT-OK'
 } catch { 'PRINT-ERR ' + $_.Exception.Message }
-""" % (files, q(printer), q(printer), copies, q(docname), '$true' if duplex else '$false', paper,
+""" % (files, q(printer), q(printer), copies, q(docname), '$true' if landscape else '$false', '$true' if duplex else '$false', paper,
        ("$pd.PrinterSettings.PrintToFile = $true; $pd.PrinterSettings.PrintFileName = '%s'" % q(to_file)) if to_file else '',
        q(printer), q(printer))
     r = _ps(script, timeout=320 + 20 * len(pngs))

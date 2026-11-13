@@ -119,6 +119,7 @@ def render_files(M, cfg, theme=None, pdf=True, paper=None, sheet='month'):
     from PIL import Image
     theme = theme or cfg.get('theme', 'glass')
     a3 = (paper or cfg.get('paper')) == 'A3'
+    land = bool(M.get('part'))                                   # landscape hizb page (one prayer per page)
     base = os.path.join(paths.OUT, '%s-%s-%s%s' % ('hizb' if sheet == 'hizb' else 'mawaqit', M['key'], theme, '-A3' if a3 else ''))
     with _render_lock:
         fn = render.render_hizb_html if sheet == 'hizb' else render.render_html
@@ -129,18 +130,24 @@ def render_files(M, cfg, theme=None, pdf=True, paper=None, sheet='month'):
         try:
             for attempt in (1, 2, 3, 4):                 # the headless browser sometimes refuses to start: wait and retry
                 try:
-                    osal.screenshot(base + '.html', tmp_png, 4.2 if a3 else 3, os.path.join(tmp, 'profile%d' % attempt))
+                    osal.screenshot(base + '.html', tmp_png, 4.2 if a3 else 3, os.path.join(tmp, 'profile%d' % attempt), land)
                     break
                 except Exception:
                     if attempt == 4: raise
                     log.warning('render retry %d', attempt)
                     time.sleep(2 * attempt)
-            os.replace(tmp_png, base + '.png')
+            for k in range(10):                          # target may be briefly locked (antivirus, viewer)
+                try:
+                    os.replace(tmp_png, base + '.png'); break
+                except PermissionError:
+                    if k == 9: raise
+                    time.sleep(0.5)
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
         if pdf:   # PDF built from the PNG (keeps blur/glass effects exactly as rendered)
             im = Image.open(base + '.png').convert('RGB')
-            im.save(base + '.pdf', 'PDF', resolution=im.width / (11.69 if a3 else 8.27))
+            inch = {(False, False): 8.27, (True, False): 11.69, (False, True): 11.69, (True, True): 16.54}[(a3, land)]
+            im.save(base + '.pdf', 'PDF', resolution=im.width / inch)
     return base + '.png', (base + '.pdf' if pdf else None)
 
 
@@ -171,8 +178,12 @@ def _print_all(M, cfg, sheet='month'):
     done, failed = [], []
     for paper, copies, printer in jobs:
         try:
-            png, pdf = render_files(M, cfg, paper=paper, sheet=sheet)
-            print_sheet(png, pdf, dict(cfg, paper=paper, copies=copies, printer=printer))
+            if sheet == 'hizb':
+                pngs, pdf = hizb_pages(M, cfg, paper)
+                print_sheet(pngs, pdf, dict(cfg, paper=paper, copies=copies, printer=printer))
+            else:
+                png, pdf = render_files(M, cfg, paper=paper, sheet=sheet)
+                print_sheet(png, pdf, dict(cfg, paper=paper, copies=copies, printer=printer))
             done.append('%d × %s' % (copies, paper))
         except Exception as e:
             log.exception('print %s', paper)
@@ -244,13 +255,28 @@ def hizb_month_files(cfg, start_day=None, first_hizb=1, days=30, theme=None, pro
     pngs = []
     for k in range(days):
         f = ahzab.nxt(first_hizb, 2 * k)
-        H = ahzab.day_model(cfg, None, f, ahzab.nxt(f))
-        png, _ = render_files(H, cfg, theme, pdf=False, paper='A4', sheet='hizb')
-        pngs.append(png)
+        for H in ahzab.day_pages(cfg, f, ahzab.nxt(f)):
+            png, _ = render_files(H, cfg, theme, pdf=False, paper='A4', sheet='hizb')
+            pngs.append(png)
         if progress: progress(k + 1, days)
     pdf = os.path.join(paths.OUT, 'ahzab-%s-%02d-%s.pdf' % (ahzab.riwaya(cfg), first_hizb, theme))
     ims = [Image.open(p).convert('RGB') for p in pngs]
-    ims[0].save(pdf, 'PDF', resolution=ims[0].width / 8.27, save_all=True, append_images=ims[1:])
+    ims[0].save(pdf, 'PDF', resolution=ims[0].width / (11.69 if ims[0].width > ims[0].height else 8.27),
+                save_all=True, append_images=ims[1:])
+    return pngs, pdf
+
+
+def hizb_pages(H, cfg, paper='A4'):
+    """All pages of one day's hizb sheet (1 portrait page, or 1–2 landscape pages) -> PNGs + PDF."""
+    from PIL import Image
+    from . import ahzab
+    pngs = [render_files(P, cfg, pdf=False, paper=paper, sheet='hizb')[0]
+            for P in ahzab.day_pages(cfg, H['fajr']['n'], H['isha']['n'])]
+    pdf = pngs[0][:-4] + ('-all.pdf' if len(pngs) > 1 else '.pdf')
+    ims = [Image.open(p).convert('RGB') for p in pngs]
+    land = ims[0].width > ims[0].height
+    inch = (16.54 if land else 11.69) if paper == 'A3' else (11.69 if land else 8.27)
+    ims[0].save(pdf, 'PDF', resolution=ims[0].width / inch, save_all=True, append_images=ims[1:])
     return pngs, pdf
 
 

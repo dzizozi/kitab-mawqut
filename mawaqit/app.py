@@ -49,10 +49,13 @@ def apply(changes):
     for k in ('hizb_fajr', 'hizb_isha'):
         if k in changes: d[k] = max(1, min(60, int(changes[k] or 1)))
     if changes.get('riwaya') in ('warsh', 'hafs'): d['riwaya'] = changes['riwaya']
+    if changes.get('hizb_layout') in ('portrait', 'landscape'): d['hizb_layout'] = changes['hizb_layout']
+    if changes.get('hizb_part') in ('both', 'fajr', 'isha'): d['hizb_part'] = changes['hizb_part']
+    if changes.get('digits') in ('auto', 'western', 'eastern'): d['digits'] = changes['digits']
     for k in ('font_title', 'font_deco', 'font_text', 'font_quran'):
         if k in changes and (changes[k] in fonts_cfg.FONTS or (k == 'font_quran' and changes[k] == 'auto')): d[k] = changes[k]
     for k in fonts_cfg.SIZES:
-        if k in changes: d[k] = max(60, min(160, int(changes[k] or 100)))
+        if k in changes: d[k] = max(60, min(500, int(changes[k] or 100)))
     if 'hizb_date' in changes: d['hizb_date'] = changes['hizb_date'] or ''
     if 'tune' in changes: d['tune'] = {k: int(v or 0) for k, v in changes['tune'].items()}
     if 'mosque_image' in changes: d['mosque_image'] = changes['mosque_image']
@@ -118,7 +121,9 @@ class H(BaseHTTPRequestHandler):
                 return self.send(200, render.render_html(model(d), d, q.get('theme')), 'text/html; charset=utf-8')
             if u.path == '/hizb-sheet':
                 d = draft()
-                return self.send(200, render.render_hizb_html(hizb_model(d), d, q.get('theme')), 'text/html; charset=utf-8')
+                H = hizb_model(d)
+                P = ahzab.day_pages(d, H['fajr']['n'], H['isha']['n'])[0]
+                return self.send(200, render.render_hizb_html(P, d, q.get('theme')), 'text/html; charset=utf-8')
             if u.path == '/api/job':
                 return self.send(200, JOB)
             if u.path == '/api/ahzab':
@@ -182,10 +187,11 @@ class H(BaseHTTPRequestHandler):
             if self.path in ('/api/hizb-print', '/api/hizb-pdf'):
                 d = apply(data)
                 H = hizb_model(d)
-                saved = config.load(); saved.update(hizb_fajr=d['hizb_fajr'], hizb_isha=d['hizb_isha'], riwaya=ahzab.riwaya(d)); config.save(saved)
+                saved = config.load(); saved.update(hizb_fajr=d['hizb_fajr'], hizb_isha=d['hizb_isha'], riwaya=ahzab.riwaya(d),
+                             hizb_layout=d.get('hizb_layout', 'portrait'), hizb_part=d.get('hizb_part', 'both')); config.save(saved)
                 if self.path == '/api/hizb-pdf':
                     paper = 'A3' if (int(d.get('a3_copies') or 0) and not int(d.get('a4_copies') or 0)) else 'A4'
-                    png, pdf = core.render_files(H, d, d.get('theme'), paper=paper, sheet='hizb')
+                    pngs, pdf = core.hizb_pages(H, d, paper)
                     core.open_path(pdf); return self.send(200, dict(ok=True, msg='تم فتح ملف PDF (%s) ✓' % paper))
                 summary = core.print_all(H, d, sheet='hizb')
                 return self.send(200, dict(ok=True, msg='أُرسلت ورقة الحزب إلى الطابعة: ' + summary + ' ✓'))

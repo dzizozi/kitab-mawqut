@@ -40,4 +40,14 @@ def day_model(cfg, day=None, fajr=None, isha=None):
     isha = int(isha or cfg.get('hizb_isha') or nxt(fajr))
     r = riwaya(cfg)
     A = ahzab(r)
-    return dict(riwaya=r, key='%s-%02d-%02d' % (r, fajr, isha), fajr=A[fajr - 1], isha=A[isha - 1])
+    return dict(riwaya=r, key='%s-%02d-%02d' % (r, fajr, isha), fajr=A[fajr - 1], isha=A[isha - 1], part=None)
+
+
+def day_pages(cfg, fajr, isha):
+    """Pages of one day: portrait = one page with both hizbs; landscape = one page per prayer
+    (cfg hizb_part: both / fajr / isha)."""
+    H = day_model(cfg, None, fajr, isha)
+    if cfg.get('hizb_layout') != 'landscape':
+        return [H]
+    parts = {'fajr': ['fajr'], 'isha': ['isha']}.get(cfg.get('hizb_part'), ['fajr', 'isha'])
+    return [dict(H, part=p, key='%s-%s-L' % (H['key'], p)) for p in parts]

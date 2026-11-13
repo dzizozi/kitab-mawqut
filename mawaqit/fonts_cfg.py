@@ -31,7 +31,7 @@ ROLES = {
     'deco':  ('font_deco', 'Amiri', 'amiri'),
     'text':  ('font_text', 'Noto Sans Arabic', 'noto_sans'),
 }
-SIZES = ('size_title', 'size_table', 'size_cards', 'size_quran')     # percentages (60–160)
+SIZES = ('size_title', 'size_table', 'size_cards', 'size_quran')     # percentages (60–500)
 
 KFGQPC_UNFIX = str.maketrans({'\u08F2': '\u0656', '\u08F0': '\u0657', '\u08F1': '\u065E'})
 
@@ -60,7 +60,7 @@ def face(family, font_id, base):
 
 def pct(cfg, key):
     try:
-        return max(60, min(160, int(cfg.get(key) or 100))) / 100
+        return max(60, min(500, int(cfg.get(key) or 100))) / 100
     except (TypeError, ValueError):
         return 1.0
 
@@ -76,7 +76,7 @@ def css(cfg, base, riwaya=None):
     st, sb, sc, sq = (pct(cfg, k) for k in SIZES)
     if st != 1: out.append('.head .h-right,.head .h-mid,.head .h-left{zoom:%.2f}' % st)
     if sb != 1: out.append('.tbl th,.tbl td{zoom:%.2f}' % sb)
-    if sc != 1: out.append('.bottom .card,.meta,.foot,.hz .when,.hz .rng .lb{zoom:%.2f}' % sc)
+    if sc != 1: out.append('.bottom .card,.meta,.foot,.hz .when,.hz .num,.hz .rng .lb{zoom:%.2f}' % sc)
     if sq != 1: out.append('.hz .words{zoom:%.2f}' % sq)
     out.append(".hz .words{font-family:'QuranText','Amiri',serif;font-weight:400}")
     return ''.join(out)

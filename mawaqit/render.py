@@ -37,6 +37,26 @@ def image_data(path):
     return 'data:image/%s;base64,%s' % ('jpeg' if ext in ('jpg', 'jpeg') else ext, base64.b64encode(open(path, 'rb').read()).decode())
 
 
+EASTERN = {'SA', 'AE', 'KW', 'QA', 'BH', 'OM', 'YE', 'IQ', 'SY', 'JO', 'LB', 'PS', 'EG', 'SD'}
+_TXT = __import__('re').compile(r'(<style.*?</style>|<script.*?</script>|<[^>]*>)', __import__('re').S)
+_EAST = str.maketrans('0123456789', '٠١٢٣٤٥٦٧٨٩')
+
+
+def digit_style(cfg):
+    d = cfg.get('digits') or 'auto'
+    if d == 'auto':
+        return 'eastern' if cfg.get('country') in EASTERN else 'western'
+    return d
+
+
+def digits(html_doc, cfg):
+    """Arabic-Indic digits (٠١٢…, Mashriq) or Western digits (012…, Maghreb/Europe) in the sheet text only."""
+    if digit_style(cfg) != 'eastern':
+        return html_doc
+    parts = _TXT.split(html_doc)
+    return ''.join(p if (p.startswith('<')) else p.translate(_EAST) for p in parts)
+
+
 def fmt_date(d):
     return '%02d/%02d/%d' % (d.day, d.month, d.year)
 
@@ -115,7 +135,7 @@ def render_html(M, cfg, theme=None, font_base='/fonts/'):
         left = ('<div class="h-left"><div class="h-title">%s %s</div><div class="h-sub">%s</div></div>'
                 % (UI['in_city'][0], e(city_ar), e(cfg.get('city_name', ''))))
 
-    return f'''<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>{e(month_ar)} {M['annee']}</title>
+    return digits(f'''<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>{e(month_ar)} {M['annee']}</title>
 <style>{font_css(font_base)}{themes.css_for(theme)}{fonts_cfg.css(cfg, font_base)}</style></head><body class="t-{theme}">{DEFS}{BGDECO}
 <div class="page">
  <div class="panel head">
@@ -139,12 +159,13 @@ def render_html(M, cfg, theme=None, font_base='/fonts/'):
   <div class="panel card"><h3>{UI['next'][0]} <small>{UI['next'][L]}</small></h3><div class="chips">{chips}</div></div>
  </div>
  <div class="foot"><span>{e(source)}{foot_note}</span><span>{e(source_r)} · {dt.date.today().strftime('%d/%m/%Y')}</span></div>
-</div></body></html>'''
+</div></body></html>''', cfg)
 
 
 HIZB_CSS = """
 .hz-meta { justify-content: center; gap: 18px; font-size: 15px; padding: 6px 10px }
-.hz { flex: 1 1 auto !important; display: grid; grid-template-rows: 1fr 1fr; gap: 14px; min-height: 0 }
+.hz { flex: 1 1 auto !important; display: grid; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; min-height: 0 }
+.hz .card { min-height: 0; overflow: hidden }
 .hz .card { display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 16px 30px; gap: 6px }
 .hz .when { display: flex; align-items: center; gap: 12px; font-size: 22px; font-weight: 700 }
 .hz .when small { font-family: 'Segoe UI', 'UILatin'; font-size: 13px; font-weight: 600; opacity: .7; letter-spacing: .5px }
@@ -155,9 +176,38 @@ HIZB_CSS = """
 .hz .rng .lb i { font-style: normal; opacity: .65 } .hz .rng .lb b { font-family: 'Noto Kufi Arabic' }
 .hz .words { font-family: 'Amiri'; font-weight: 700; font-size: 31px; line-height: 1.55; text-align: center; width: 100%; padding: 0 4% }
 .hz .words.end { font-size: 27px; opacity: .85 }
-.hz .words::before { content: '\\FD3F  '; opacity: .55 } .hz .words::after { content: '  \\FD3E'; opacity: .55 }
+.hz .words::before { content: '\\FD3F\\00A0'; opacity: .55 } .hz .words::after { content: '\\00A0\\FD3E'; opacity: .55 }
 .hz-dua { text-align: center; font-family: 'Amiri'; font-size: 17px; padding: 4px 10px }
 """
+
+HIZB_LAND_CSS = """
+html, body { width: 1123px !important; height: 794px !important }
+.page { padding: 14px 20px 10px }
+.head { min-height: 96px; padding: 8px 22px }
+.hz { grid-template-rows: minmax(0, 1fr) }
+.hz .card { padding: 14px 40px }
+.hz .when { font-size: 30px }
+.hz .num { font-size: 60px }
+.hz .words { font-size: 44px }
+.hz .words.end { font-size: 38px }
+"""
+
+# Large font sizes never overflow: shrink the hizb card content until it fits its card.
+AUTOFIT = '''<script>(function () {
+ function fit() {
+  document.querySelectorAll('.hz .card').forEach(function (c) {
+    var els = c.querySelectorAll('.words, .num, .when, .lb');
+    c.style.justifyContent = 'flex-start';                 // measure from the top, then centre again
+    var over = function () { return c.scrollHeight > c.clientHeight + 1 || c.scrollWidth > c.clientWidth + 1; };
+    for (var k = 0; k < 80 && over(); k++)
+      els.forEach(function (e) { var z = parseFloat(e.style.zoom || getComputedStyle(e).zoom) || 1; e.style.zoom = (z * 0.95).toFixed(3); });
+    c.style.justifyContent = '';
+  });
+ }
+ fit();                                                     // fallback fonts
+ if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);   // again with the real fonts
+ window.addEventListener('load', fit);
+})();</script>'''
 
 ORD_AR = ['الأول', 'الثاني', 'الثالث', 'الرابع', 'الخامس', 'السادس', 'السابع', 'الثامن', 'التاسع', 'العاشر',
           'الحادي عشر', 'الثاني عشر', 'الثالث عشر', 'الرابع عشر', 'الخامس عشر', 'السادس عشر', 'السابع عشر',
@@ -189,7 +239,7 @@ def render_hizb_html(H, cfg, theme=None, font_base='/fonts/'):
 
     def card(h, label, label2):
         return ('<div class="panel card"><div class="when">%s <small>%s</small></div>'
-                '<div class="num month">الحزب %d<small>Hizb %d / 60</small></div>'
+                '<div class="num month">الحزب %d<small dir="ltr">Hizb \u2066%d\u2069 / \u206660\u2069</small></div>'
                 '<div class="rng"><span class="lb"><i>بدايته</i> سورة %s · الآية <b>%d</b></span><div class="words">%s</div>'
                 '<span class="lb"><i>نهايته</i> سورة %s · الآية <b>%d</b></span><div class="words end">%s</div></div></div>'
                 % (label, label2, h['n'], h['n'], e(h['sura_name']), h['aya'], qt(h['words']),
@@ -199,21 +249,25 @@ def render_hizb_html(H, cfg, theme=None, font_base='/fonts/'):
     src = ('رواية ورش عن نافع · تقسيم الأحزاب وترقيم الآيات حسب المصحف المغربي · النص: مجمع الملك فهد' if warsh
            else 'رواية حفص عن عاصم · ترقيم الآيات الكوفي · النص: مشروع تنزيل tanzil.net')
     day_ar = ORD_AR[day - 1] if 1 <= day <= 30 else str(day)
-    return f'''<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>حزب اليوم {day}</title>
-<style>{font_css(font_base)}{themes.css_for(theme)}{HIZB_CSS}{fonts_cfg.css(cfg, font_base, H.get('riwaya'))}</style></head><body class="t-{theme}">{DEFS}{BGDECO}
+    part = H.get('part')
+    cards = {'fajr': card(H['fajr'], 'بعد صلاة الصبح', 'Après Fajr' if L == 1 else 'After Fajr'),
+             'isha': card(H['isha'], 'بعد صلاة العشاء', "Après Ichaa" if L == 1 else 'After Isha')}
+    body_cards = cards[part] if part else cards['fajr'] + cards['isha']
+    land_css = HIZB_LAND_CSS if part else ''
+    return digits(f'''<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>حزب اليوم {day}</title>
+<style>{font_css(font_base)}{themes.css_for(theme)}{HIZB_CSS}{land_css}{fonts_cfg.css(cfg, font_base, H.get('riwaya'))}</style></head><body class="t-{theme}">{DEFS}{BGDECO}
 <div class="page">
  <div class="panel head">
   <div class="h-right"><div class="h-title">الحزب الراتب</div><div class="h-sub">{'Lecture quotidienne du Coran' if L == 1 else 'Daily Quran reading'}</div></div>
   <div class="h-mid">{emblem}<div class="month">اليوم {day_ar}</div>
-   <div class="month-fr">{'Jour' if L == 1 else 'Day'} {day} / 30</div></div>
+   <div class="month-fr" dir="ltr">{'Jour' if L == 1 else 'Day'} \u2066{day}\u2069 / \u206630\u2069</div></div>
   {left}
   {MOSQUE}
  </div>
  <div class="meta hz-meta"><span><b>ختمة كل شهر</b> · حزبان في اليوم</span><span>{'رواية ورش عن نافع' if warsh else 'رواية حفص عن عاصم'}</span></div>
  <div class="hz">
-  {card(H['fajr'], 'بعد صلاة الصبح', 'Après Fajr' if L == 1 else 'After Fajr')}
-  {card(H['isha'], 'بعد صلاة العشاء', "Après Ichaa" if L == 1 else 'After Isha')}
+  {body_cards}
  </div>
  <div class="hz-dua dua">{e(cfg.get('dua', '') or 'خيركم من تعلّم القرآن وعلّمه')}</div>
- <div class="foot"><span>{src}</span><span>{day} / 30</span></div>
-</div></body></html>'''
+ <div class="foot"><span>{src}</span><span dir="ltr">\u2066{day}\u2069 / \u206630\u2069</span></div>
+</div>{AUTOFIT}</body></html>''', cfg)

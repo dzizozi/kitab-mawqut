@@ -2,7 +2,7 @@
 import os
 
 
-def snapshot(html_path, png_path, scale):
+def snapshot(html_path, png_path, scale, W=794, H=1123):
     import objc
     from Foundation import NSURL, NSRunLoop, NSDate, NSMakeRect
     from AppKit import NSApplication, NSBitmapImageRep, NSPNGFileType, NSApplicationActivationPolicyProhibited
@@ -10,7 +10,7 @@ def snapshot(html_path, png_path, scale):
 
     app = NSApplication.sharedApplication()
     app.setActivationPolicy_(NSApplicationActivationPolicyProhibited)
-    web = WKWebView.alloc().initWithFrame_configuration_(NSMakeRect(0, 0, 794, 1123), WKWebViewConfiguration.alloc().init())
+    web = WKWebView.alloc().initWithFrame_configuration_(NSMakeRect(0, 0, W, H), WKWebViewConfiguration.alloc().init())
     url = NSURL.fileURLWithPath_(os.path.abspath(html_path))
     web.loadFileURL_allowingReadAccessToURL_(url, NSURL.fileURLWithPath_('/'))
 
@@ -28,8 +28,8 @@ def snapshot(html_path, png_path, scale):
         done['img'], done['err'] = image, error
 
     conf = WKSnapshotConfiguration.alloc().init()
-    conf.setRect_(NSMakeRect(0, 0, 794, 1123))
-    conf.setSnapshotWidth_(794 * scale / 2)    # points; retina backing doubles it
+    conf.setRect_(NSMakeRect(0, 0, W, H))
+    conf.setSnapshotWidth_(W * scale / 2)    # points; retina backing doubles it
     web.takeSnapshotWithConfiguration_completionHandler_(conf, handler)
     for _ in range(200):
         spin(0.05)

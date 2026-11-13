@@ -158,6 +158,7 @@ body[data-theme=y2k] h1 { background: linear-gradient(90deg,#ff2fb8,#7a00ff,#00b
    <button class="btn sec small" id="imgdel" onclick="setImage('')">حذف</button>
    <input type="file" id="file" accept="image/*" class="hide"></div>
   <label>نص أو دعاء أعلى الورقة (اختياري)</label><input type="text" id="dua">
+  <label>شكل الأرقام</label><select id="digits"><option value="auto">تلقائي حسب البلد</option><option value="western">0 1 2 3 – عربية (المغرب العربي وأوروبا)</option><option value="eastern">٠ ١ ٢ ٣ – هندية (المشرق العربي)</option></select>
   <label>اللغة الثانية على الورقة</label><select id="lang2"><option value="fr">Français</option><option value="en">English</option></select>
  </div>
 
@@ -168,10 +169,10 @@ body[data-theme=y2k] h1 { background: linear-gradient(90deg,#ff2fb8,#7a00ff,#00b
   <div class="fontrow"><label>الآيات (ورقة الحزب)</label><select id="font_quran"></select><div class="fsample q" id="s_font_quran">سَيَقُولُ اُ۬لسُّفَهَآءُ مِنَ اَ۬لنَّاسِ</div></div>
   <h3 class="sub">أحجام الخطوط</h3>
   <div class="sizes">
-   <label>العناوين</label><input type="range" id="size_title" min="60" max="160" step="5"><b id="v_size_title"></b>
-   <label>جدول المواقيت</label><input type="range" id="size_table" min="60" max="160" step="5"><b id="v_size_table"></b>
-   <label>البطاقات والتذييل</label><input type="range" id="size_cards" min="60" max="160" step="5"><b id="v_size_cards"></b>
-   <label>الآيات</label><input type="range" id="size_quran" min="60" max="160" step="5"><b id="v_size_quran"></b>
+   <label>العناوين</label><input type="range" id="size_title" min="60" max="500" step="10"><b id="v_size_title"></b>
+   <label>جدول المواقيت</label><input type="range" id="size_table" min="60" max="500" step="10"><b id="v_size_table"></b>
+   <label>البطاقات والتذييل</label><input type="range" id="size_cards" min="60" max="500" step="10"><b id="v_size_cards"></b>
+   <label>الآيات</label><input type="range" id="size_quran" min="60" max="500" step="10"><b id="v_size_quran"></b>
   </div>
   <button class="btn sec small" style="margin-top:8px" onclick="resetFonts()">الخطوط والأحجام الأصلية</button>
  </div>
@@ -191,6 +192,10 @@ body[data-theme=y2k] h1 { background: linear-gradient(90deg,#ff2fb8,#7a00ff,#00b
  <div class="panel"><h2><svg class="ico"><use href="#i-moon"/></svg>ورقة حزب القراءة</h2>
   <div class="status">حزب بعد صلاة الصبح وحزب بعد صلاة العشاء، بنفس التصميم وبدون تاريخ، فتصلح الأوراق لكل شهر.</div>
   <label>الرواية وتقسيم الأحزاب</label><select id="riwaya"><option value="warsh">ورش عن نافع (المصحف المغربي)</option><option value="hafs">حفص عن عاصم</option></select>
+  <div class="grid2">
+   <div><label>اتجاه الورقة</label><select id="hizb_layout"><option value="portrait">عمودي – الحزبان في ورقة</option><option value="landscape">عرضي – صلاة واحدة في كل ورقة</option></select></div>
+   <div id="partbox"><label>الأوراق العرضية</label><select id="hizb_part"><option value="both">الصبح والعشاء</option><option value="fajr">الصبح فقط</option><option value="isha">العشاء فقط</option></select></div>
+  </div>
   <label>بعد صلاة الصبح</label><select id="hizb_fajr" class="hz-sel"></select>
   <label>بعد صلاة العشاء</label><select id="hizb_isha" class="hz-sel"></select>
   <div class="row" style="margin-top:10px">
@@ -199,7 +204,7 @@ body[data-theme=y2k] h1 { background: linear-gradient(90deg,#ff2fb8,#7a00ff,#00b
   <div class="row" style="margin-top:6px">
    <button class="btn" onclick="act('/api/hizb-print', hizbData())"><svg class="ico"><use href="#i-print"/></svg>اطبع ورقة الحزب</button>
    <button class="btn sec" onclick="act('/api/hizb-pdf', hizbData())"><svg class="ico"><use href="#i-file"/></svg>PDF</button></div>
-  <h3 class="sub">ختمة الشهر كاملة (30 صفحة · حزبان في اليوم)</h3>
+  <h3 class="sub">ختمة الشهر كاملة (حزبان في اليوم)</h3>
   <div class="grid2">
    <div><label>ابتداءً من الحزب</label><input type="number" id="hm_first" min="1" max="60" value="1"></div>
    <div><label>عدد النسخ</label><input type="number" id="hm_copies" min="1" max="20" value="1"></div>
@@ -225,9 +230,13 @@ const $ = id => document.getElementById(id);
 const post = (u, d) => fetch(u, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(d || {})}).then(r => r.json());
 const PR = [['fajr','الصبح'],['sunrise','الشروق'],['dhuhr','الظهر'],['asr','العصر'],['maghrib','المغرب'],['isha','العشاء']];
 function toast(t, ms) { const e = $('toast'); e.textContent = t; e.classList.add('on'); clearTimeout(e._t); e._t = setTimeout(() => e.classList.remove('on'), ms || 2600); }
-function fit() { const pv = $('pv'), f = $('frame'); const s = Math.min((pv.clientHeight - 28) / 1123, (pv.clientWidth - 28) / 794);
-  f.style.transform = 'scale(' + s + ')'; f.style.marginBottom = (-(1 - s) * 1123) + 'px'; f.style.marginLeft = f.style.marginRight = (-(1 - s) * 794 / 2) + 'px';
-  document.querySelectorAll('.th .mini').forEach(m => { m.querySelector('iframe').style.transform = 'scale(' + (m.clientWidth / 794) + ')'; }); }
+function isLand() { return VIEW === 'hizb' && S && S.cfg.hizb_layout === 'landscape'; }
+function fit() { const pv = $('pv'), f = $('frame'); const W = isLand() ? 1123 : 794, H = isLand() ? 794 : 1123;
+  f.style.width = W + 'px'; f.style.height = H + 'px';
+  const s = Math.min((pv.clientHeight - 28) / H, (pv.clientWidth - 28) / W);
+  f.style.transform = 'scale(' + s + ')'; f.style.marginBottom = (-(1 - s) * H) + 'px'; f.style.marginLeft = f.style.marginRight = (-(1 - s) * W / 2) + 'px';
+  document.querySelectorAll('.th .mini').forEach(m => { m.style.aspectRatio = W + '/' + H; const fr = m.querySelector('iframe');
+    fr.style.width = W + 'px'; fr.style.height = H + 'px'; fr.style.transform = 'scale(' + (m.clientWidth / W) + ')'; }); }
 let VIEW = 'month';
 function sheetUrl() { return VIEW === 'hizb' ? '/hizb-sheet' : '/sheet'; }
 function refresh(all) {
@@ -235,13 +244,15 @@ function refresh(all) {
   $('frame').src = sheetUrl() + '?theme=' + S.cfg.theme + '&t=' + t;
   if (all) document.querySelectorAll('.th iframe').forEach(f => f.src = sheetUrl() + '?theme=' + f.dataset.k + '&t=' + t);
 }
-function setView(v) { VIEW = v; $('v_month').classList.toggle('on', v === 'month'); $('v_hizb').classList.toggle('on', v === 'hizb'); refresh(true); }
+function setView(v) { VIEW = v; setTimeout(fit, 0); $('v_month').classList.toggle('on', v === 'month'); $('v_hizb').classList.toggle('on', v === 'hizb'); refresh(true); }
 const today = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10); };
 const hnext = (n, k = 1) => ((+n - 1 + k) % 60) + 1;
 function hizbData() { return {riwaya: $('riwaya').value, hizb_fajr: +$('hizb_fajr').value, hizb_isha: +$('hizb_isha').value}; }
 async function hizbChange(extra) { const r = await post('/api/draft', Object.assign(hizbData(), extra || {})); if (r.ok) S.cfg = r.cfg; setView('hizb'); }
 function hmInfo() { const n = +$('hm_copies').value || 1, dup = $('hm_duplex').checked;
-  $('hm_info').innerHTML = `A4 فقط · ${dup ? 15 * n : 30 * n} ورقة${dup ? ' (وجهان)' : ''} على <b>${S.cfg.a4_printer || S.cfg.printer || '—'}</b>`; }
+  const per = (S.cfg.hizb_layout === 'landscape' && (S.cfg.hizb_part || 'both') === 'both') ? 2 : 1, pages = 30 * per;
+  $('partbox').style.visibility = S.cfg.hizb_layout === 'landscape' ? 'visible' : 'hidden';
+  $('hm_info').innerHTML = `A4 فقط · ${pages} صفحة على ${dup ? Math.ceil(pages / 2) * n : pages * n} ورقة${dup ? ' (وجهان)' : ''} على <b>${S.cfg.a4_printer || S.cfg.printer || '—'}</b>`; }
 async function hizbMonth(u) {
   if (busy) return; busy = true;
   const btns = document.querySelectorAll('aside .row .btn'); btns.forEach(b => b.disabled = true);
@@ -362,6 +373,9 @@ async function load() {
   loadAhzab();
   hmInfo();
   for (const k of ['hm_copies','hm_duplex']) $(k).onchange = hmInfo;
+  for (const k of ['hizb_layout','hizb_part']) { $(k).value = S.cfg[k] || (k === 'hizb_layout' ? 'portrait' : 'both');
+    $(k).onchange = async () => { const r = await post('/api/draft', {[k]: $(k).value}); if (r.ok) S.cfg = r.cfg; hmInfo(); setView('hizb'); }; }
+  $('digits').value = S.cfg.digits || 'auto'; $('digits').onchange = () => change({digits: $('digits').value});
   $('hizb_fajr').onchange = () => { $('hizb_isha').value = hnext($('hizb_fajr').value); hizbChange(); };
   $('hizb_isha').onchange = () => hizbChange();
   setTheme(S.cfg.theme || 'glass'); setView('month'); fit();
