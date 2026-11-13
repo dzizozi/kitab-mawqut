@@ -54,7 +54,7 @@ def apply(changes):
     if changes.get('digits') in ('auto', 'western', 'eastern'): d['digits'] = changes['digits']
     for k in ('font_title', 'font_deco', 'font_text', 'font_quran'):
         if k in changes and (changes[k] in fonts_cfg.FONTS or (k == 'font_quran' and changes[k] == 'auto')): d[k] = changes[k]
-    for k in fonts_cfg.SIZES:
+    for k in fonts_cfg.SIZES + tuple(x[0] for x in fonts_cfg.HZ_LINES):
         if k in changes: d[k] = max(60, min(500, int(changes[k] or 100)))
     if 'hizb_date' in changes: d['hizb_date'] = changes['hizb_date'] or ''
     if 'tune' in changes: d['tune'] = {k: int(v or 0) for k, v in changes['tune'].items()}
@@ -131,7 +131,7 @@ class H(BaseHTTPRequestHandler):
             if u.path == '/api/state':
                 d = draft()
                 return self.send(200, dict(
-                    cfg=d, riwaya=ahzab.riwaya(d), fonts=fonts_cfg.choices(),
+                    cfg=d, riwaya=ahzab.riwaya(d), fonts=fonts_cfg.choices(), hz_lines=[[k, lab] for k, _, lab in fonts_cfg.HZ_LINES],
                     font_files={k: v[2][-1][0] for k, v in fonts_cfg.FONTS.items()}, task=core.task_on(), month_start=model(d)['start'].isoformat(), month=month_info(d), version=paths.VERSION, os=('win' if os.name == 'nt' else 'unix'),
                     countries=config.countries(), cities=config.cities(d['country']),
                     methods=[[k, calc.METHODS[k]['ar'], calc.METHODS[k]['en']] for k in calc.METHOD_ORDER],

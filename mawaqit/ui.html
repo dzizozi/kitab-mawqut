@@ -172,7 +172,6 @@ body[data-theme=y2k] h1 { background: linear-gradient(90deg,#ff2fb8,#7a00ff,#00b
    <label>العناوين</label><input type="range" id="size_title" min="60" max="500" step="10"><b id="v_size_title"></b>
    <label>جدول المواقيت</label><input type="range" id="size_table" min="60" max="500" step="10"><b id="v_size_table"></b>
    <label>البطاقات والتذييل</label><input type="range" id="size_cards" min="60" max="500" step="10"><b id="v_size_cards"></b>
-   <label>الآيات</label><input type="range" id="size_quran" min="60" max="500" step="10"><b id="v_size_quran"></b>
   </div>
   <button class="btn sec small" style="margin-top:8px" onclick="resetFonts()">الخطوط والأحجام الأصلية</button>
  </div>
@@ -190,14 +189,17 @@ body[data-theme=y2k] h1 { background: linear-gradient(90deg,#ff2fb8,#7a00ff,#00b
   <div class="status" id="taskst"></div>
  </div>
  <div class="panel"><h2><svg class="ico"><use href="#i-moon"/></svg>ورقة حزب القراءة</h2>
-  <div class="status">حزب بعد صلاة الصبح وحزب بعد صلاة العشاء، بنفس التصميم وبدون تاريخ، فتصلح الأوراق لكل شهر.</div>
+  <div class="status">حزب بعد صلاة الصبح وحزب بعد صلاة المغرب، بنفس التصميم وبدون تاريخ، فتصلح الأوراق لكل شهر.</div>
   <label>الرواية وتقسيم الأحزاب</label><select id="riwaya"><option value="warsh">ورش عن نافع (المصحف المغربي)</option><option value="hafs">حفص عن عاصم</option></select>
   <div class="grid2">
    <div><label>اتجاه الورقة</label><select id="hizb_layout"><option value="portrait">عمودي – الحزبان في ورقة</option><option value="landscape">عرضي – صلاة واحدة في كل ورقة</option></select></div>
-   <div id="partbox"><label>الأوراق العرضية</label><select id="hizb_part"><option value="both">الصبح والعشاء</option><option value="fajr">الصبح فقط</option><option value="isha">العشاء فقط</option></select></div>
+   <div id="partbox"><label>الأوراق العرضية</label><select id="hizb_part"><option value="both">الصبح والمغرب</option><option value="fajr">الصبح فقط</option><option value="isha">المغرب فقط</option></select></div>
   </div>
   <label>بعد صلاة الصبح</label><select id="hizb_fajr" class="hz-sel"></select>
-  <label>بعد صلاة العشاء</label><select id="hizb_isha" class="hz-sel"></select>
+  <label>بعد صلاة المغرب</label><select id="hizb_isha" class="hz-sel"></select>
+  <h3 class="sub">حجم كل سطر في ورقة الحزب</h3>
+  <div class="sizes" id="hzsizes"></div>
+  <button class="btn sec small" style="margin-top:6px" onclick="change(Object.fromEntries(S.hz_lines.map(([k]) => [k, 100])))">الأحجام الأصلية للأسطر</button>
   <div class="row" style="margin-top:10px">
    <button class="btn sec" onclick="hizbNext()" title="الحزبان التاليان">اليوم التالي ⟵</button>
    <button class="btn sec" onclick="setView('hizb')">معاينة</button></div>
@@ -273,7 +275,7 @@ async function loadAhzab() {
     $('hizb_fajr').innerHTML = $('hizb_isha').innerHTML = opts;
     $('hizb_fajr').value = f; $('hizb_isha').value = i;
 }
-const FONT_KEYS = ['font_title','font_deco','font_text','font_quran'], SIZE_KEYS = ['size_title','size_table','size_cards','size_quran'];
+const FONT_KEYS = ['font_title','font_deco','font_text','font_quran']; let SIZE_KEYS = ['size_title','size_table','size_cards'];
 const FONT_DEF = {font_title: 'noto_kufi', font_deco: 'amiri', font_text: 'noto_sans', font_quran: 'auto'};
 function fontsInit() {
   const st = document.createElement('style');
@@ -284,6 +286,8 @@ function fontsInit() {
     $(k).innerHTML = (k === 'font_quran' ? '<option value="auto">تلقائي – العثماني حسب الرواية (ورش / حفص)</option>' : '') + opts;
     $(k).onchange = () => { const v = $(k).value; S.cfg[k] = v; fontsUI(); change({[k]: v}, true); };
   }
+  $('hzsizes').innerHTML = S.hz_lines.map(([k, lab]) => `<label>${lab}</label><input type="range" id="${k}" min="60" max="500" step="10"><b id="v_${k}"></b>`).join('');
+  for (const [k] of S.hz_lines) SIZE_KEYS.push(k);
   for (const k of SIZE_KEYS) {
     $(k).oninput = () => { $('v_' + k).textContent = $(k).value + '%'; };
     $(k).onchange = () => change({[k]: +$(k).value}, true);
@@ -295,9 +299,10 @@ function fontsUI() {
     let v = $(k).value; if (v === 'auto') v = ($('riwaya').value === 'hafs') ? 'kfgqpc_hafs' : 'kfgqpc_warsh';
     $('s_' + k).style.fontFamily = `'pv-${v}', serif`;
   }
-  for (const k of SIZE_KEYS) { $(k).value = S.cfg[k] || 100; $('v_' + k).textContent = (S.cfg[k] || 100) + '%'; }
+  for (const k of SIZE_KEYS) { const v = S.cfg[k] || ((k === 'hz_start' || k === 'hz_end') && S.cfg.size_quran) || 100;
+    $(k).value = v; $('v_' + k).textContent = v + '%'; }
 }
-function resetFonts() { change(Object.assign({}, FONT_DEF, Object.fromEntries(SIZE_KEYS.map(k => [k, 100])))); }
+function resetFonts() { change(Object.assign({}, FONT_DEF, {size_quran: 100}, Object.fromEntries(SIZE_KEYS.map(k => [k, 100])))); }
 function mosquesUI() {
   const list = S.cfg.mosques || [], cur = (S.cfg.mosque_name || '').trim();
   $('mosques').innerHTML = `<option value="">${list.length ? '— اختر مسجداً محفوظاً (' + list.length + ') —' : '— لا توجد مساجد محفوظة بعد —'}</option>` +

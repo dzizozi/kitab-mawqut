@@ -240,8 +240,8 @@ def render_hizb_html(H, cfg, theme=None, font_base='/fonts/'):
     def card(h, label, label2):
         return ('<div class="panel card"><div class="when">%s <small>%s</small></div>'
                 '<div class="num month">الحزب %d<small dir="ltr">Hizb \u2066%d\u2069 / \u206660\u2069</small></div>'
-                '<div class="rng"><span class="lb"><i>بدايته</i> سورة %s · الآية <b>%d</b></span><div class="words">%s</div>'
-                '<span class="lb"><i>نهايته</i> سورة %s · الآية <b>%d</b></span><div class="words end">%s</div></div></div>'
+                '<div class="rng"><span class="lb lb1"><i>بدايته</i> سورة %s · الآية <b>%d</b></span><div class="words">%s</div>'
+                '<span class="lb lb2"><i>نهايته</i> سورة %s · الآية <b>%d</b></span><div class="words end">%s</div></div></div>'
                 % (label, label2, h['n'], h['n'], e(h['sura_name']), h['aya'], qt(h['words']),
                    e(h['end_sura_name']), h['end_aya'], qt(h['end_words'])))
 
@@ -251,7 +251,7 @@ def render_hizb_html(H, cfg, theme=None, font_base='/fonts/'):
     day_ar = ORD_AR[day - 1] if 1 <= day <= 30 else str(day)
     part = H.get('part')
     cards = {'fajr': card(H['fajr'], 'بعد صلاة الصبح', 'Après Fajr' if L == 1 else 'After Fajr'),
-             'isha': card(H['isha'], 'بعد صلاة العشاء', "Après Ichaa" if L == 1 else 'After Isha')}
+             'isha': card(H['isha'], 'بعد صلاة المغرب', 'Après Maghrib' if L == 1 else 'After Maghrib')}
     body_cards = cards[part] if part else cards['fajr'] + cards['isha']
     land_css = HIZB_LAND_CSS if part else ''
     return digits(f'''<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>حزب اليوم {day}</title>
@@ -264,10 +264,8 @@ def render_hizb_html(H, cfg, theme=None, font_base='/fonts/'):
   {left}
   {MOSQUE}
  </div>
- <div class="meta hz-meta"><span><b>ختمة كل شهر</b> · حزبان في اليوم</span><span>{'رواية ورش عن نافع' if warsh else 'رواية حفص عن عاصم'}</span></div>
  <div class="hz">
   {body_cards}
  </div>
  <div class="hz-dua dua">{e(cfg.get('dua', '') or 'خيركم من تعلّم القرآن وعلّمه')}</div>
- <div class="foot"><span>{src}</span><span dir="ltr">\u2066{day}\u2069 / \u206630\u2069</span></div>
 </div>{AUTOFIT}</body></html>''', cfg)

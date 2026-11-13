@@ -32,6 +32,13 @@ ROLES = {
     'text':  ('font_text', 'Noto Sans Arabic', 'noto_sans'),
 }
 SIZES = ('size_title', 'size_table', 'size_cards', 'size_quran')     # percentages (60–500)
+# hizb sheet: one size per line of each card
+HZ_LINES = (('hz_when', '.hz .when', 'الصلاة (بعد صلاة الصبح / المغرب)'),
+            ('hz_num', '.hz .num', 'رقم الحزب'),
+            ('hz_lb1', '.hz .lb1', 'سطر «بدايته» (السورة والآية)'),
+            ('hz_start', '.hz .words:not(.end)', 'كلمات البداية'),
+            ('hz_lb2', '.hz .lb2', 'سطر «نهايته» (السورة والآية)'),
+            ('hz_end', '.hz .words.end', 'كلمات النهاية'))
 
 KFGQPC_UNFIX = str.maketrans({'\u08F2': '\u0656', '\u08F0': '\u0657', '\u08F1': '\u065E'})
 
@@ -76,8 +83,11 @@ def css(cfg, base, riwaya=None):
     st, sb, sc, sq = (pct(cfg, k) for k in SIZES)
     if st != 1: out.append('.head .h-right,.head .h-mid,.head .h-left{zoom:%.2f}' % st)
     if sb != 1: out.append('.tbl th,.tbl td{zoom:%.2f}' % sb)
-    if sc != 1: out.append('.bottom .card,.meta,.foot,.hz .when,.hz .num,.hz .rng .lb{zoom:%.2f}' % sc)
-    if sq != 1: out.append('.hz .words{zoom:%.2f}' % sq)
+    if sc != 1: out.append('.bottom .card,.meta,.foot{zoom:%.2f}' % sc)
+    for key, sel, _ in HZ_LINES:                     # hizb sheet: each line on its own
+        z = pct(cfg, key)
+        if key in ('hz_start', 'hz_end') and cfg.get(key) is None: z = sq    # older setting «الآيات»
+        if z != 1: out.append('%s{zoom:%.2f}' % (sel, z))
     out.append(".hz .words{font-family:'QuranText','Amiri',serif;font-weight:400}")
     return ''.join(out)
 
