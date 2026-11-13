@@ -307,15 +307,51 @@ async function mosques() {
   return MOSQ;
 }
 
-// ---------------------------------------------------------------- settings (remote-control friendly)
+// ---------------------------------------------------------------- settings (remote-control friendly, saved automatically)
 let RES = null;
 const NUM = (v, d = 0) => { const s = String(v ?? '').replace(/[٠-٩]/g, c => '٠١٢٣٤٥٦٧٨٩'.indexOf(c)).replace(/[۰-۹]/g, c => '۰۱۲۳۴۵۶۷۸۹'.indexOf(c)).replace(/[−–]/g, '-').trim();
   const n = parseInt(s, 10); return isNaN(n) ? d : n; };
 // number fields as text: the TV's Arabic locale would otherwise show them in Eastern digits
 const numIn = (id, v, extra = '') => `<input type="text" inputmode="numeric" dir="ltr" class="num" id="${id}" value="${v}"${extra}>`;
 function srcInfo() {
-  if (cfg.country === 'MA' && cfg.method === 'MOROCCO' && cfg.habous_id) return `المصدر: وزارة الأوقاف والشؤون الإسلامية – مواقيت مدينة ${esc(cfg.city_ar)}`;
+  if (cfg.country === 'MA' && cfg.method === 'MOROCCO' && cfg.habous_id) {
+    const H = model.cities('MA').find(c => c[0] === 'h' + cfg.habous_id);
+    return `المصدر: وزارة الأوقاف والشؤون الإسلامية – مواقيت ${esc(H ? H[1] : cfg.city_ar)}`;
+  }
   const m = S.METHODS[cfg.method]; return `المصدر: حساب فلكي – ${m ? m.ar : cfg.method} – ${esc(cfg.city_ar || cfg.city_name)}`;
+}
+// parts of the screen whose text size can be changed one by one: id, label, base size (rem), sample text
+const ZONES = [['mos', 'اسم المسجد', 5.4, () => cfg.mosque_name || 'مواقيت الصلاة'], ['clock', 'الساعة', 13, () => '12:30'],
+  ['date', 'التاريخ', 3.2, () => 'الجمعة 3 جمادى الثانية'], ['next', 'الصلاة القادمة والعدّاد', 9, () => 'العصر 08:52'],
+  ['panel', 'الإعلانات والأحزاب', 8, () => (cfg.tv_news || '').split('\n')[0] || 'إعلان'], ['cards', 'بطاقات المواقيت', 7, () => 'الظهر 12:20'],
+  ['ticker', 'الشريط المتحرك', 3.6, () => (cfg.tv_news || '').split('\n')[0] || 'إعلان'], ['iqama', 'عدّاد الإقامة', 30, () => '04:43'],
+  ['adhkar', 'الأذكار', 6.4, () => 'أَسْتَغْفِرُ اللهَ'], ['hadith', 'حديث الجمعة', 7, () => 'مَنْ لَغَا فَلَا جُمُعَةَ لَهُ']];
+const zOf = k => Math.max(50, Math.min(250, ((cfg.tv_z || {})[k]) || 100)) / 100;
+function zoneCss() {
+  const z = k => zOf(k).toFixed(3), r = (k, rem) => `calc(${rem}rem * ${z(k)})`;
+  return `.tv-mos{font-size:${r('mos', 5.4)}}.tv-mos small{font-size:${r('mos', 2.6)}}
+    #tv-clock{font-size:${r('clock', 13)}}#tv-sec{font-size:${r('clock', 4.6)}}#tv-date{font-size:${r('date', 3.2)}}
+    #tv-next .fit>*{zoom:${z('next')}}#tv-panel .fit>*,#tv-panel h3{zoom:${z('panel')}}
+    .pc .pn{font-size:${r('cards', 3.8)}}.pc .pt{font-size:${r('cards', 7)}}.pc .pi{font-size:${r('cards', 2.6)}}
+    #tv-ticker{height:calc(6.4vh * ${z('ticker')})}#tv-ticker .tk{font-size:${r('ticker', 3.6)}}.ovc{font-size:${r('iqama', 30)}}
+    .adk .fit>*,.adk h2{zoom:${z('adhkar')}}.hadith .fit>*{zoom:${z('hadith')}}`;
+}
+const lines = s => String(s || '').split('\n').map(x => x.trim()).filter(Boolean);
+function listRows(id, items, ph) {
+  return items.map((v, i) => `<div class="li"><input type="text" data-list="${id}" value="${esc(v)}" placeholder="${ph}"><button class="del" data-del="${id}:${i}" title="حذف">✕</button></div>`).join('');
+}
+function adkRows(text) {
+  return parseAdhkar(text).map((s, i) => s.special
+    ? `<div class="ak"><input type="text" data-ak="t" value="" placeholder="العنوان" class="w1"><input type="text" data-ak="x" value="${esc(s.special)}" class="w3"><input type="text" data-ak="s" value="" placeholder="المصدر" class="w1"><button class="del" data-akdel="${i}">✕</button></div>`
+    : `<div class="ak"><input type="text" data-ak="t" value="${esc(s.title)}" placeholder="العنوان" class="w1"><input type="text" data-ak="x" value="${esc(s.lines.join(' / '))}" placeholder="نص الذكر (السطور يفصل بينها /)" class="w3"><input type="text" data-ak="s" value="${esc(s.src)}" placeholder="المصدر" class="w1"><button class="del" data-akdel="${i}">✕</button></div>`).join('');
+}
+function adkText(box) {
+  return [...box.querySelectorAll('.ak')].map(r => {
+    const t = r.querySelector('[data-ak=t]').value.trim(), x = r.querySelector('[data-ak=x]').value.trim(), s = r.querySelector('[data-ak=s]').value.trim();
+    if (!x) return '';
+    if (/^\[.*\]$/.test(x)) return x;
+    return [t ? '# ' + t : '', ...x.split('/').map(l => l.trim()).filter(Boolean), s ? '— ' + s : ''].filter(Boolean).join('\n');
+  }).filter(Boolean).join('\n\n');
 }
 function settingsHtml() {
   const th = Object.entries(THEMES).map(([k, v]) => `<option value="${k}">${v[0]}</option>`).join('');
@@ -324,46 +360,83 @@ function settingsHtml() {
   const tn = KEYS.map(k => `<label>${NAMES[k]}${numIn('tn-' + k, (cfg.tune || {})[k] || 0, ` data-tn="${k}"`)}</label>`).join('');
   const me = S.METHOD_ORDER.map(k => `<option value="${k}">${S.METHODS[k].ar}</option>`).join('');
   const ak = ADK_KEYS.map(([k, n]) => `<option value="${k}">${n}</option>`).join('');
-  return `<div class="set"><h2>إعدادات شاشة المسجد</h2>
-   <div class="g2">
-    <label>اسم المسجد (اكتب أوله للبحث في قائمة المساجد)<input type="text" id="s-mosque" value="${esc(cfg.mosque_name)}"><div id="s-mosques" class="cl"></div></label>
-    <label>التصميم<select id="s-theme">${th}</select></label>
-    <label>البلد<select id="s-country"></select></label>
-    <label>المدينة (اكتب للبحث)<input type="search" id="s-city" placeholder="${esc(cfg.city_ar)}"><div id="s-cities" class="cl"></div></label>
-    <label>نوع الخط<select id="s-font">${fo}</select><div class="fprev" id="s-fprev">الصلاة القادمة 12:30 — ١٢:٣٠</div></label>
-    <label>حجم الخط (%)${numIn('s-scale', cfg.tv_scale)}</label>
-    <label>الرواية (الأحزاب والآيات)<select id="s-riwaya"><option value="warsh">ورش عن نافع</option><option value="hafs">حفص عن عاصم</option></select></label>
-    <label>شكل الأرقام على الشاشة<select id="s-digits"><option value="auto">تلقائي حسب البلد</option><option value="western">0123</option><option value="eastern">٠١٢٣</option></select></label>
-    <label>دقة الشاشة<select id="s-res"><option value="auto">تلقائي (أعلى دقة يدعمها الجهاز)</option><option value="2160">4K – 3840×2160</option><option value="1080">Full HD – 1920×1080</option></select><small id="s-resinfo"></small></label>
-   </div>
-   <h3>طريقة حساب المواقيت</h3>
-   <label class="chk"><input type="checkbox" id="s-mauto"${cfg.method_auto !== false ? ' checked' : ''}><span>تلقائي حسب بلد المسجد (في المغرب: مواقيت وزارة الأوقاف لمدينة المسجد)</span></label>
-   <div class="g2"><label>الطريقة (عند إلغاء التلقائي)<select id="s-method">${me}</select></label>
-    <label>صلاة العصر<select id="s-asr"><option value="1">الجمهور (مالكي، شافعي، حنبلي)</option><option value="2">الحنفي</option></select></label></div>
-   <label>تعديل يدوي بالدقائق لمطابقة مواقيت مسجدكم (مثال: 2 أو -3)</label><div class="g6">${tn}</div>
+  const zc = ZONES.map(([k, n]) => `<button class="chip" data-zone="${k}">${n}</button>`).join('');
+  return `<div class="set"><h2>إعدادات شاشة المسجد <small>تُحفظ كل خانة تلقائياً عند الخروج منها</small></h2>
+   <h3>المسجد والمدينة</h3>
+   <label>اسم المسجد (اكتب أوله للبحث في قائمة المساجد)<input type="text" id="s-mosque" value="${esc(cfg.mosque_name)}"></label><div id="s-mosques" class="cl"></div>
+   <label>البلد<select id="s-country"></select></label>
+   <label>المدينة (اكتب أول الاسم ثم اختر من القائمة)<input type="text" id="s-city" value="${esc(cfg.city_ar)}"></label><div id="s-cities" class="cl"></div>
    <small id="s-src">${srcInfo()}</small>
-   <h3>الإقامة بعد الأذان (بالدقائق)</h3><div class="g6">${iq}<label>الجمعة${numIn('s-jiq', cfg.jumua_iqama)}</label></div>
-   <div class="g3">
-    <label>مدة الصلاة (دقيقة)${numIn('s-pmin', cfg.prayer_min)}</label>
-    <label>عرض الأذكار بعد الصلاة (دقيقة)${numIn('s-amin', cfg.adhkar_min)}</label>
-    <label>عرض حديث الجمعة قبل الأذان (دقيقة)${numIn('s-fri', cfg.friday_before)}</label>
-   </div>
-   <h3>الإعلانات والحديث</h3>
-   <label>إعلانات للمصلين (سطر لكل إعلان – تظهر في اللوحة وفي الشريط المتحرك)<textarea id="s-news" rows="3">${esc(cfg.tv_news)}</textarea></label>
-   <label>حديث الجمعة (يظهر قبل صلاة الجمعة)<textarea id="s-hadith" rows="3">${esc(cfg.tv_hadith)}</textarea></label>
+   <h3>طريقة حساب المواقيت</h3>
+   <label class="chk"><input type="checkbox" id="s-mauto"${cfg.method_auto !== false ? ' checked' : ''}><span>تلقائي حسب بلد المسجد (في المغرب: مواقيت وزارة الأوقاف)</span></label>
+   <label>الطريقة (عند إلغاء التلقائي)<select id="s-method">${me}</select></label>
+   <label>صلاة العصر<select id="s-asr"><option value="1">الجمهور (مالكي، شافعي، حنبلي)</option><option value="2">الحنفي</option></select></label>
+   <label>تعديل يدوي بالدقائق لمطابقة مسجدكم (مثال: 2 أو -3)</label><div class="g6">${tn}</div>
+   <h3>الإقامة (بالدقائق بعد الأذان)</h3><div class="g6">${iq}<label>الجمعة${numIn('s-jiq', cfg.jumua_iqama)}</label></div>
+   <div class="g3"><label>مدة الصلاة${numIn('s-pmin', cfg.prayer_min)}</label><label>مدة عرض الأذكار${numIn('s-amin', cfg.adhkar_min)}</label>
+    <label>حديث الجمعة قبل الأذان بـ${numIn('s-fri', cfg.friday_before)}</label></div>
+   <h3>المظهر</h3>
+   <label>التصميم<select id="s-theme">${th}</select></label>
+   <label>نوع الخط<select id="s-font">${fo}</select></label>
+   <label>الحجم العام لكل الخطوط (%)${numIn('s-scale', cfg.tv_scale)}</label>
+   <label>شكل الأرقام على الشاشة<select id="s-digits"><option value="auto">تلقائي حسب البلد</option><option value="western">0123</option><option value="eastern">٠١٢٣</option></select></label>
+   <label>الرواية (الأحزاب والآيات)<select id="s-riwaya"><option value="warsh">ورش عن نافع</option><option value="hafs">حفص عن عاصم</option></select></label>
+   <label>دقة الشاشة<select id="s-res"><option value="auto">تلقائي (أعلى دقة يدعمها الجهاز)</option><option value="2160">4K – 3840×2160</option><option value="1080">Full HD – 1920×1080</option></select></label><small id="s-resinfo"></small>
+   <h3>حجم الخط لكل جزء من الشاشة</h3>
+   <div class="chips">${zc}</div>
+   <div class="zrow"><button id="z-minus">−</button><b id="z-val">100%</b><button id="z-plus">+</button><button id="z-reset">100%</button>
+    <div class="zprev" id="z-prev"></div></div>
+   <small>اختر الجزء ثم غيّر حجمه بـ − و +. النصوص الطويلة تُصغَّر تلقائياً لتبقى داخل إطارها.</small>
+   <h3>الإعلانات للمصلين <small>(تظهر في اللوحة وفي الشريط المتحرك)</small></h3>
+   <div id="s-news">${listRows('news', lines(cfg.tv_news), 'نص الإعلان')}</div><button class="add" id="add-news">+ إضافة إعلان</button>
+   <h3>حديث الجمعة</h3>
+   <div id="s-hadith">${listRows('hadith', lines(cfg.tv_hadith), 'سطر من الحديث')}</div><button class="add" id="add-hadith">+ إضافة سطر</button>
    <h3>الأذكار بعد الصلاة</h3>
-   <div class="g2"><label>أذكار صلاة<select id="s-adk-p">${ak}</select></label>
-    <div class="row" style="align-items:end"><button id="s-adk-reset">استعادة الأذكار الأصلية</button></div></div>
-   <textarea id="s-adk" rows="9"></textarea>
-   <small>كل فقرة (يفصل بينها سطر فارغ) تظهر في شاشة. السطر الأول إذا بدأ بـ # فهو العنوان، والأخير إذا بدأ بـ — فهو المصدر، و(33) يظهر عدداً.
-    اكتب [آية الكرسي] أو [المعوذات] في فقرة لعرضها بالرسم العثماني. إذا تركت صلاة فارغة تظهر فيها أذكار «كل الصلوات».</small>
-   <div class="row"><button id="s-save" class="b1">حفظ وإغلاق</button><button id="s-cancel">إغلاق</button><button id="s-phone">التحويل إلى وضع الهاتف</button></div>
-   <p class="hint">يُفتح هذا الإعداد بزر OK أو Menu. الأسهم للتنقل، وOK للكتابة في خانة. الضغط المطوّل على زر الرجوع يعيدك إلى اختيار الوضع (هاتف / مسجد).
-    قائمة المساجد من OpenStreetMap (© المساهمون، ODbL).</p></div>`;
+   <label>أذكار صلاة<select id="s-adk-p">${ak}</select></label>
+   <div id="s-adk"></div>
+   <div class="row"><button class="add" id="add-adk">+ إضافة ذكر</button><button id="s-adk-reset">استعادة الأذكار الأصلية</button></div>
+   <small>اكتب [آية الكرسي] أو [المعوذات] في خانة النص لعرضها بالرسم العثماني، و(33) يظهر عدداً. إذا كانت صلاة بلا أذكار تُعرض أذكار «كل الصلوات».</small>
+   <div class="row"><button id="s-cancel" class="b1">إغلاق</button><button id="s-phone">التحويل إلى وضع الهاتف</button></div>
+   <p class="hint">الأسهم ▲▼ للتنقل بين الخانات بالترتيب، وOK للكتابة أو الاختيار. بعد الكتابة اضغط ▼ أو OK للانتقال (يُحفظ تلقائياً).
+    الضغط المطوّل على زر الرجوع يعيدك إلى اختيار الوضع (هاتف / مسجد). قائمة المساجد من OpenStreetMap (© المساهمون، ODbL).</p></div>`;
 }
-let cityRows = [], pendingCity = null;
+let cityRows = [], pendingCity = null, ZSEL = 'panel', ADK = null, adkKey = 'all';
 function suggest(listEl, items) {
   listEl.innerHTML = items.map(([k, lab]) => `<button data-k="${esc(k)}">${lab}</button>`).join('');
+}
+function zoneUI() {
+  document.querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c.dataset.zone === ZSEL));
+  const z = ZONES.find(x => x[0] === ZSEL), v = Math.round(zOf(ZSEL) * 100);
+  $('z-val').textContent = v + '%';
+  const px = innerHeight / 100 * (cfg.tv_scale || 100) / 100 * z[2] * zOf(ZSEL);       // the real size on the screen
+  $('z-prev').innerHTML = `<span style="font-size:${Math.min(px, 150).toFixed(0)}px">${esc(z[3]())}</span>${px > 150 ? `<em>حجمه الحقيقي ${Math.round(px)}px</em>` : ''}`;
+}
+let applyT = null;
+function commit(full) {             // read every field, save, and refresh the screen behind the settings
+  const cc = $('s-country').value, changed = cc !== cfg.country;
+  if (changed) Object.assign(cfg, { country: cc }, model.countryDefaults(cc));
+  if (pendingCity) { Object.assign(cfg, model.cityInfo(pendingCity.cc, pendingCity.k), { city_key: pendingCity.k }); pendingCity = null; }
+  else if (changed) { const f = model.cities(cc)[0]; Object.assign(cfg, model.cityInfo(cc, f[0]), { city_key: f[0] }); }
+  cfg.method_auto = $('s-mauto').checked;
+  if (cfg.method_auto) Object.assign(cfg, { method: model.countryDefaults(cfg.country).method, asr: model.countryDefaults(cfg.country).asr });
+  else Object.assign(cfg, { method: $('s-method').value, asr: +$('s-asr').value || 1 });
+  if (cfg.country !== 'MA' && cfg.method === 'MOROCCO') cfg.method = S.COUNTRY_METHOD[cfg.country] || 'MWL';
+  if (cfg.country !== 'MA' && cfg.hijri_mode === 'morocco') cfg.hijri_mode = 'ummalqura';
+  cfg.tune = Object.fromEntries(KEYS.map(k => [k, Math.max(-60, Math.min(60, NUM($('tn-' + k).value)))]));
+  document.querySelectorAll('[data-iq]').forEach(i => cfg.iqama[i.dataset.iq] = Math.max(0, NUM(i.value)));
+  ADK[adkKey] = adkText($('s-adk')); cfg.tv_adhkar = { ...ADK };
+  const res = $('s-res').value, resChanged = res !== (cfg.tv_res || 'auto');
+  Object.assign(cfg, { mosque_name: $('s-mosque').value.trim(), tv_theme: $('s-theme').value, riwaya: $('s-riwaya').value, digits: $('s-digits').value,
+    tv_font: $('s-font').value, tv_scale: Math.max(60, Math.min(200, NUM($('s-scale').value, 100))), tv_res: res,
+    jumua_iqama: NUM($('s-jiq').value), prayer_min: NUM($('s-pmin').value, 10) || 10, adhkar_min: NUM($('s-amin').value),
+    friday_before: NUM($('s-fri').value),
+    tv_news: [...document.querySelectorAll('[data-list=news]')].map(i => i.value.trim()).filter(Boolean).join('\n'),
+    tv_hadith: [...document.querySelectorAll('[data-list=hadith]')].map(i => i.value.trim()).filter(Boolean).join('\n') });
+  save(); applyTheme();
+  $('s-src').innerHTML = srcInfo();
+  if (resChanged) applyRes();
+  clearTimeout(applyT);
+  applyT = setTimeout(async () => { lastBuild = ''; await build(); $('tv-ticker')._t = null; $('tv-panel')._h = null; $('tv-next').querySelector('#tv-nexthead')._h = null; render(); }, 150);
 }
 async function openSettings() {
   const box = $('tv-settings'); box.innerHTML = settingsHtml(); box.classList.add('on');
@@ -373,26 +446,37 @@ async function openSettings() {
   $('s-method').value = cfg.method; $('s-asr').value = String(cfg.asr || 1);
   const mAuto = () => { const on = $('s-mauto').checked; $('s-method').disabled = $('s-asr').disabled = on;
     if (on) { const d = model.countryDefaults($('s-country').value); $('s-method').value = d.method; $('s-asr').value = String(d.asr); } };
-  $('s-mauto').onchange = mAuto; mAuto();
-  const ADK = { ...cfg.tv_adhkar }; let adkKey = 'all';
-  const adkLoad = () => { $('s-adk').value = ADK[adkKey] || ''; $('s-adk').placeholder = adkKey === 'all' ? '' : '(فارغ = نفس أذكار «كل الصلوات»)'; };
-  $('s-adk-p').onchange = () => { ADK[adkKey] = $('s-adk').value; adkKey = $('s-adk-p').value; adkLoad(); };
-  $('s-adk-reset').onclick = e => { e.preventDefault(); ADK[adkKey] = adkKey === 'all' ? DEF_ADHKAR : ''; adkLoad(); };
-  adkLoad();
-  const fprev = () => { $('s-fprev').style.fontFamily = `'F-${$('s-font').value}'`; };
-  $('s-font').onchange = fprev; fprev();
+  mAuto();
   $('s-resinfo').textContent = `الآن: ${Math.round(screen.width * devicePixelRatio)}×${Math.round(screen.height * devicePixelRatio)}` + (RES && RES.max ? ` · أقصى ما يدعمه الجهاز: ${RES.max}` : '');
   cityRows = model.cities(cfg.country); pendingCity = null;
-  $('s-country').onchange = () => { cityRows = model.cities($('s-country').value); pendingCity = null; $('s-city').placeholder = 'اختر المدينة'; mAuto(); };
+  // adhkar editor
+  ADK = { ...cfg.tv_adhkar }; adkKey = 'all';
+  const adkLoad = () => { $('s-adk').innerHTML = adkRows(ADK[adkKey] || (adkKey === 'all' ? DEF_ADHKAR : '')) || '<small>لا أذكار خاصة بهذه الصلاة: تُعرض أذكار «كل الصلوات». اضغط «+ إضافة ذكر» لإضافة أذكار خاصة.</small>'; lockTexts(); };
+  adkLoad();
+  // auto save: every field when it is left / changed
+  box.addEventListener('change', e => {
+    const el = e.target;
+    if (el.id === 's-adk-p') { ADK[adkKey] = adkText($('s-adk')); adkKey = el.value; adkLoad(); return; }
+    if (el.id === 's-country') { cityRows = model.cities(el.value); $('s-city').value = ''; mAuto(); }
+    if (el.id === 's-mauto') mAuto();
+    if (el.id === 's-mosque' || el.id === 's-city') return;            // handled by their suggestion lists / commit below
+    commit();
+    if (el.id === 's-scale') zoneUI();
+  });
+  box.addEventListener('focusout', e => {
+    if (e.target.id === 's-mosque') commit();
+    if (e.target.id === 's-city' && !e.target.value.trim()) setTimeout(() => { if (!pendingCity && document.activeElement !== $('s-city')) $('s-city').value = cfg.city_ar; }, 300);
+  });
+  // search lists (city / mosque)
   $('s-city').oninput = () => {
     const q = AR_NORM($('s-city').value.trim());
-    const hits = q ? cityRows.filter(c => AR_NORM(c[1]).includes(q) || AR_NORM(c[2]).includes(q)).slice(0, 8) : [];
-    suggest($('s-cities'), hits.map(c => [c[0], esc(c[1]) + (c[2] && c[2] !== c[1] ? ' — ' + esc(c[2]) : '')]));
+    const hits = q ? cityRows.filter(c => AR_NORM(c[1]).includes(q) || AR_NORM(c[2]).includes(q))
+      .sort((a, b) => (AR_NORM(a[1]).startsWith(q) || AR_NORM(a[2]).startsWith(q) ? 0 : 1) - (AR_NORM(b[1]).startsWith(q) || AR_NORM(b[2]).startsWith(q) ? 0 : 1)).slice(0, 8) : [];
+    suggest($('s-cities'), hits.map(c => [c[0], `<b>${esc(c[1])}</b>${c[2] && c[2] !== c[1] ? ' — ' + esc(c[2]) : ''}`]));
   };
-  $('s-cities').onclick = e => { e.preventDefault(); const b = e.target.closest('[data-k]'); if (!b) return;   // inside <label>: no click forwarding
-    pendingCity = { cc: $('s-country').value, k: b.dataset.k }; $('s-city').value = b.textContent; $('s-cities').innerHTML = '';
-    $('s-city').readOnly = true; $('s-font').focus(); };
-  // mosque name: free text, with suggestions from the Moroccan list (name · district · city)
+  $('s-cities').onclick = e => { const b = e.target.closest('[data-k]'); if (!b) return;
+    pendingCity = { cc: $('s-country').value, k: b.dataset.k }; const c = cityRows.find(x => x[0] === b.dataset.k);
+    $('s-city').value = c ? c[1] : b.textContent; $('s-cities').innerHTML = ''; commit(); lockTexts(); go($('s-mauto')); };
   $('s-mosque').oninput = async () => {
     const q = AR_NORM($('s-mosque').value.trim());
     if ($('s-country').value !== 'MA' || q.length < 2) { $('s-mosques').innerHTML = ''; return; }
@@ -401,44 +485,48 @@ async function openSettings() {
     const hits = (words.length ? L.filter(m => words.every(w => m.key.includes(w))) : L).slice(0, 8);
     suggest($('s-mosques'), hits.map(m => [L.indexOf(m), `<b>${esc(m.n)}</b>${m.alt ? ' — ' + esc(m.alt) : ''}<small>${[m.dist, m.c].filter(Boolean).map(esc).join(' · ')}</small>`]));
   };
-  $('s-mosques').onclick = e => { e.preventDefault(); const b = e.target.closest('[data-k]'); if (!b) return;
+  $('s-mosques').onclick = e => { const b = e.target.closest('[data-k]'); if (!b) return;
     const m = MOSQ[+b.dataset.k];
-    $('s-mosque').value = m.n; $('s-mosques').innerHTML = ''; $('s-mosque').readOnly = true;
-    pendingCity = { cc: 'MA', k: 'h' + m.hid }; $('s-country').value = 'MA'; cityRows = model.cities('MA');
-    $('s-city').value = m.c; $('s-theme').focus(); };
-  $('s-save').onclick = async () => {
-    const cc = $('s-country').value, changed = cc !== cfg.country;
-    if (changed) Object.assign(cfg, { country: cc }, model.countryDefaults(cc));
-    if (pendingCity) Object.assign(cfg, model.cityInfo(pendingCity.cc, pendingCity.k), { city_key: pendingCity.k });
-    else if (changed) { const f = model.cities(cc)[0]; Object.assign(cfg, model.cityInfo(cc, f[0]), { city_key: f[0] }); }
-    cfg.method_auto = $('s-mauto').checked;
-    if (cfg.method_auto) Object.assign(cfg, { method: model.countryDefaults(cfg.country).method, asr: model.countryDefaults(cfg.country).asr });
-    else Object.assign(cfg, { method: $('s-method').value, asr: +$('s-asr').value || 1 });
-    if (cfg.country !== 'MA' && cfg.method === 'MOROCCO') cfg.method = S.COUNTRY_METHOD[cfg.country] || 'MWL';
-    if (cfg.country !== 'MA' && cfg.hijri_mode === 'morocco') cfg.hijri_mode = 'ummalqura';
-    cfg.tune = Object.fromEntries(KEYS.map(k => [k, Math.max(-60, Math.min(60, NUM($('tn-' + k).value)))]));
-    ADK[adkKey] = $('s-adk').value; cfg.tv_adhkar = ADK;
-    const res = $('s-res').value, resChanged = res !== (cfg.tv_res || 'auto');
-    Object.assign(cfg, { mosque_name: $('s-mosque').value.trim(), tv_theme: $('s-theme').value, riwaya: $('s-riwaya').value, digits: $('s-digits').value,
-      tv_font: $('s-font').value, tv_scale: Math.max(60, Math.min(200, NUM($('s-scale').value, 100))), tv_res: res,
-      jumua_iqama: NUM($('s-jiq').value), prayer_min: NUM($('s-pmin').value, 10) || 10, adhkar_min: NUM($('s-amin').value),
-      friday_before: NUM($('s-fri').value), tv_news: $('s-news').value, tv_hadith: $('s-hadith').value });
-    document.querySelectorAll('[data-iq]').forEach(i => cfg.iqama[i.dataset.iq] = Math.max(0, NUM(i.value)));
-    save(); closeSettings(); applyTheme(); if (resChanged) await applyRes();
-    lastBuild = ''; await build(); $('tv-ticker')._t = null; $('tv-panel')._h = null; render();
-  };
-  $('s-cancel').onclick = closeSettings;
-  $('s-phone').onclick = () => { localStorage.setItem('mode', 'phone'); location.reload(); };
-  // TV remote: text fields open the on-screen keyboard only after OK (otherwise the arrows get stuck in the keyboard)
-  box.querySelectorAll('input:not([type=checkbox]),textarea').forEach(el => {
-    el.readOnly = true;
-    el.addEventListener('blur', () => { el.readOnly = true; });
-    el.addEventListener('click', () => { el.readOnly = false; });
+    $('s-mosque').value = m.n; $('s-mosques').innerHTML = '';
+    pendingCity = { cc: 'MA', k: 'h' + m.hid }; $('s-country').value = 'MA'; cityRows = model.cities('MA'); $('s-city').value = m.c;
+    commit(); lockTexts(); go($('s-country')); };
+  // lists: add / delete
+  const addRow = (id, ph) => { $('s-' + id).insertAdjacentHTML('beforeend', listRows(id, [''], ph).replace(`data-del="${id}:0"`, `data-del="${id}:x"`));
+    lockTexts(); const ins = $('s-' + id).querySelectorAll('input'); go(ins[ins.length - 1]); };
+  $('add-news').onclick = () => addRow('news', 'نص الإعلان');
+  $('add-hadith').onclick = () => addRow('hadith', 'سطر من الحديث');
+  $('add-adk').onclick = () => { if (!$('s-adk').querySelector('.ak')) $('s-adk').innerHTML = '';
+    $('s-adk').insertAdjacentHTML('beforeend', adkRows('# \nذكر جديد').replace('value="ذكر جديد"', 'value=""'));
+    lockTexts(); const r = $('s-adk').querySelectorAll('.ak'); go(r[r.length - 1].querySelector('[data-ak=x]')); };
+  $('s-adk-reset').onclick = () => { ADK[adkKey] = adkKey === 'all' ? DEF_ADHKAR : ''; adkLoad(); commit(); };
+  box.addEventListener('click', e => {
+    const d = e.target.closest('[data-del],[data-akdel]'); if (!d) return;
+    const row = d.closest('.li,.ak'), nxt = row.nextElementSibling || row.previousElementSibling;
+    row.remove(); commit(); go(nxt ? nxt.querySelector('input') : $(d.dataset.akdel !== undefined ? 'add-adk' : 'add-' + d.dataset.del.split(':')[0]));
   });
-  setTimeout(() => $('s-mosque').focus(), 50);
+  // text sizes per part
+  box.querySelectorAll('.chip').forEach(c => c.onclick = () => { ZSEL = c.dataset.zone; zoneUI(); });
+  const zSet = v => { cfg.tv_z = { ...(cfg.tv_z || {}), [ZSEL]: Math.max(50, Math.min(250, v)) }; save(); applyTheme(); zoneUI();
+    $('tv-ticker')._t = null; $('tv-panel')._h = null; $('tv-nexthead')._h = null; render(); };
+  $('z-minus').onclick = () => zSet(Math.round(zOf(ZSEL) * 100) - 10);
+  $('z-plus').onclick = () => zSet(Math.round(zOf(ZSEL) * 100) + 10);
+  $('z-reset').onclick = () => zSet(100);
+  zoneUI();
+  $('s-cancel').onclick = () => { commit(); closeSettings(); };
+  $('s-phone').onclick = () => { commit(); localStorage.setItem('mode', 'phone'); location.reload(); };
+  lockTexts();
+  setTimeout(() => go($('s-mosque')), 50);
 }
+// TV remote: text fields open the on-screen keyboard only after OK (otherwise the arrows get stuck in the keyboard)
+function lockTexts() {
+  $('tv-settings').querySelectorAll('input:not([type=checkbox]),textarea').forEach(el => {
+    if (el._locked) return; el._locked = true; el.readOnly = true;
+    el.addEventListener('blur', () => { el.readOnly = true; });
+  });
+}
+function go(el) { if (!el) return; el.focus({ preventScroll: true }); el.scrollIntoView({ block: 'center' }); }
 function closeSettings() { $('tv-settings').classList.remove('on'); $('tv-settings').innerHTML = ''; }
-function focusables() { return [...$('tv-settings').querySelectorAll('input,select,textarea,button')].filter(e => e.offsetParent); }
+function focusables() { return [...$('tv-settings').querySelectorAll('input,select,textarea,button')].filter(e => e.offsetParent && !e.disabled); }
 function onKey(e) {
   const open = $('tv-settings').classList.contains('on');
   if (!open) {
@@ -446,28 +534,31 @@ function onKey(e) {
     return;
   }
   const f = focusables(), el = document.activeElement;
-  const typing = el && !el.readOnly && el.type !== 'checkbox' && (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT');
-  if (e.key === 'Enter' && el && el.type === 'checkbox') { e.preventDefault(); el.click(); return; }
-  if (e.key === 'Enter' && el && el.readOnly && (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT')) {
-    e.preventDefault(); el.readOnly = false; el.blur(); el.focus(); el.click(); return; }
-  if (e.key === 'Escape' || e.key === 'GoBack' || e.key === 'BrowserBack') { e.preventDefault(); closeSettings(); return; }
-  const dir = { ArrowDown: [0, 1], ArrowUp: [0, -1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] }[e.key];
-  if (!dir) return;
-  if (typing && (el.tagName === 'TEXTAREA' || dir[0])) return;                        // let the cursor move inside the text
-  e.preventDefault();
-  // spatial navigation: the nearest field in the pressed direction
-  const r0 = el && f.includes(el) ? el.getBoundingClientRect() : { left: 0, top: 0, width: 0, height: 0 };
-  const c0 = [r0.left + r0.width / 2, r0.top + r0.height / 2];
-  let best = null, bs = 1e9;
-  for (const x of f) {
-    if (x === el) continue;
-    const r = x.getBoundingClientRect(), c = [r.left + r.width / 2, r.top + r.height / 2];
-    const dx = c[0] - c0[0], dy = c[1] - c0[1], along = dx * dir[0] + dy * dir[1], across = Math.abs(dx * dir[1] + dy * dir[0]);
-    if (along <= 4) continue;
-    const s = along + across * 2.5;
-    if (s < bs) { bs = s; best = x; }
+  const text = el && el.type !== 'checkbox' && (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT');
+  const typing = text && !el.readOnly;
+  if (e.key === 'Enter' && el && (el.type === 'checkbox' || el.tagName === 'BUTTON')) { e.preventDefault(); el.click(); return; }
+  if (e.key === 'Enter' && text && el.readOnly) {                      // OK: start typing (keyboard opens)
+    e.preventDefault(); el.blur(); el.readOnly = false; el.focus(); el.click();
+    if (el.id === 's-city') { el.placeholder = el.value; el.value = ''; $('s-cities').innerHTML = ''; }   // type a new name
+    else if (el.id === 's-mosque' || el.classList.contains('num')) el.select();
+    return; }
+  if (e.key === 'Enter' && typing) {                                   // OK / «Done» on the keyboard: finish this field
+    e.preventDefault(); el.readOnly = true; el.blur(); el.focus({ preventScroll: true });
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+    const nx = el.id === 's-city' ? $('s-cities').querySelector('button') : el.id === 's-mosque' ? $('s-mosques').querySelector('button') : null;
+    if (nx) go(nx);
+    return;
   }
-  if (best) { best.focus(); best.scrollIntoView({ block: 'nearest' }); }
+  if (e.key === 'Escape' || e.key === 'GoBack' || e.key === 'BrowserBack') { e.preventDefault(); commit(); closeSettings(); return; }
+  const dir = { ArrowDown: 1, ArrowUp: -1, ArrowLeft: 1, ArrowRight: -1 }[e.key];      // RTL: ◀ = next
+  if (!dir) return;
+  if (typing && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) return;        // move the cursor inside the text
+  e.preventDefault();
+  if (typing) { el.readOnly = true; el.dispatchEvent(new Event('change', { bubbles: true })); }
+  // simple and predictable: the next / previous field in reading order
+  const i = f.indexOf(el);
+  const nx = f[i < 0 ? 0 : Math.max(0, Math.min(f.length - 1, i + dir))];
+  go(nx);
 }
 
 // ---------------------------------------------------------------- display resolution (Android TV: 1080p / 4K output mode)
@@ -563,6 +654,17 @@ body[data-phase=prayer] .ovt{color:#9a8a5a}
 .set select:disabled{opacity:.5}.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:4px 14px}.g5{display:grid;grid-template-columns:repeat(6,1fr);gap:4px 10px}
 .set .row{display:flex;gap:10px;margin-top:14px}.set button{font:inherit;font-size:16px;padding:10px 18px;border-radius:10px;border:2px solid #d5dde3;background:#f1f4f6;cursor:pointer}
 .set button.b1{background:#0f5e4f;color:#fff;border-color:#0f5e4f}.set .hint{font-size:12px;color:#789;margin:10px 0 0}
+.set h2 small{font-size:13px;color:#789;font-weight:400;margin-inline-start:10px}.set h3 small{font-weight:400;color:#789}
+.set{max-width:1100px}.set h3{border-top:2px solid #e6ecef;padding-top:12px;margin-top:18px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}.chip{font-size:15px !important;padding:8px 14px !important;border-radius:20px !important}
+.chip.on{background:#0f5e4f !important;color:#fff !important;border-color:#0f5e4f !important}
+.zrow{display:flex;align-items:center;gap:10px;margin-top:10px}.zrow b{min-width:70px;text-align:center;font-size:20px;font-family:'Noto Sans',sans-serif}
+.zrow #z-minus,.zrow #z-plus{font-size:24px;width:56px;padding:6px 0}
+.zprev{flex:1;height:160px;overflow:hidden;border-radius:12px;background:#0b3d2e;color:#fbf4e4;display:flex;align-items:center;justify-content:flex-start;padding:0 16px;
+  font-family:'TVF','Noto Kufi Arabic',sans-serif;font-weight:800;position:relative;white-space:nowrap}
+.zprev em{position:absolute;bottom:4px;left:8px;font-size:12px;font-style:normal;font-weight:400;opacity:.7}
+.li,.ak{display:flex;gap:8px;align-items:center;margin:6px 0}.li input{flex:1;margin:0}.ak .w1{flex:1;margin:0}.ak .w3{flex:3;margin:0}
+.del{flex:none;width:46px;padding:8px 0 !important;color:#b3261e}.add{margin-top:4px;color:#0f5e4f;font-weight:700}
 .fprev{font-size:26px;padding:4px 10px;margin-top:4px;border-radius:10px;background:#f1f4f6;color:#0f5e4f;text-align:center}
 .cl{display:flex;flex-direction:column;gap:4px;margin-top:4px}.cl button{display:block;width:100%;text-align:right;font-size:15px;padding:8px 12px}
 .cl button small{display:inline;margin-inline-start:10px}
@@ -572,7 +674,7 @@ function applyTheme() {
   const f = fontInfo(cfg.tv_font);
   const faces = `@font-face{font-family:'TVF';src:url('fonts/${f[3]}');font-weight:100 500}@font-face{font-family:'TVF';src:url('fonts/${f[4]}');font-weight:600 900}`;
   const band = t[1].includes('--band:none') ? '0px' : '5vh';
-  $('tv-theme').textContent = faces + `body.tv{${t[1]};--bandh:${band};--sc:${(cfg.tv_scale || 100) / 100}}`;
+  $('tv-theme').textContent = faces + `body.tv{${t[1]};--bandh:${band};--sc:${(cfg.tv_scale || 100) / 100}}` + zoneCss();
   document.body.dataset.riwaya = cfg.riwaya === 'hafs' ? 'hafs' : 'warsh';
   $('tv-mos').innerHTML = `${esc(cfg.mosque_name || 'مواقيت الصلاة')}<small>${esc(cfg.city_ar)}${cfg.city_name && cfg.city_name !== cfg.city_ar ? ' · ' + esc(cfg.city_name) : ''}</small>`;
 }

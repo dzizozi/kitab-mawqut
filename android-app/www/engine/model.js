@@ -25,11 +25,28 @@ export async function loadPlaces() {
 export function countries() {
   return Object.entries(PLACES.countries).map(([cc, v]) => [cc, v.ar, v.fr, v.en]).sort((a, b) => a[1].localeCompare(b[1], 'ar'));
 }
+// Morocco: the Ministry (Habous) list + the other towns (GeoNames), which take the times of the nearest Habous town
+const kmDist = (a, b, c, d) => 6371 * Math.hypot((d - b) * Math.PI / 180 * Math.cos((a + c) / 2 * Math.PI / 180), (c - a) * Math.PI / 180);
+export function nearestHabous(lat, lon) {
+  let best = null, bd = 1e9;
+  for (const h of HABOUS_CITIES) { if (h.lat == null) continue; const d = kmDist(lat, lon, h.lat, h.lon); if (d < bd) { bd = d; best = h; } }
+  return best;
+}
+const normName = s => String(s || '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z\u0600-\u06ff]/g, '');
 export function cities(cc) {
-  if (cc === 'MA') return HABOUS_CITIES.map(c => ['h' + c.id, c.ar, c.fr || '']);
+  if (cc === 'MA') {
+    const have = new Set(HABOUS_CITIES.flatMap(c => [normName(c.ar), normName(c.fr)]).filter(Boolean));
+    const extra = (PLACES.cities.MA || []).map((c, i) => [c, i]).filter(([c]) => !have.has(normName(c[0])) && !have.has(normName(c[1])))
+      .map(([c, i]) => { const h = nearestHabous(c[2], c[3]); return ['m' + i, c[1] || c[0], c[0] + (h ? ' · مواقيت ' + h.ar : '')]; });
+    return HABOUS_CITIES.map(c => ['h' + c.id, c.ar, c.fr || '']).concat(extra);
+  }
   return (PLACES.cities[cc] || []).map((c, i) => ['g' + i, c[1] || c[0], c[0]]);
 }
 export function cityInfo(cc, key) {
+  if (key[0] === 'm') {                       // Moroccan town outside the Habous list: nearest Habous town's official times
+    const c = PLACES.cities.MA[+key.slice(1)], h = nearestHabous(c[2], c[3]);
+    return { city_ar: c[1] || c[0], city_name: c[0], lat: c[2], lon: c[3], tz: 'Africa/Casablanca', habous_id: h ? h.id : 58, approx_coords: false, habous_city: h ? h.ar : '' };
+  }
   if (key[0] === 'h') {
     const c = HABOUS_CITIES.find(x => x.id === +key.slice(1));
     return { city_ar: c.ar, city_name: c.fr || c.ar, lat: c.lat ?? 33.5883, lon: c.lon ?? -7.6114, tz: 'Africa/Casablanca',
