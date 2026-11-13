@@ -40,6 +40,11 @@ HZ_LINES = (('hz_when', '.hz .when', 'الصلاة (بعد صلاة الصبح /
             ('hz_lb2', '.hz .lb2', 'سطر «نهايته» (السورة والآية)'),
             ('hz_end', '.hz .words.end', 'كلمات النهاية'))
 
+# per-line style (font / colour): size key -> CSS selector of that line on the sheets
+STYLE_SEL = {'size_title': '.head', 'size_table': '.tbl', 'size_cards': '.bottom,.meta,.foot',
+             'hz_when': '.hz .when', 'hz_num': '.hz .num', 'hz_lb1': '.hz .lb1', 'hz_start': '.hz .words:not(.end)',
+             'hz_lb2': '.hz .lb2', 'hz_end': '.hz .words.end'}
+
 KFGQPC_UNFIX = str.maketrans({'\u08F2': '\u0656', '\u08F0': '\u0657', '\u08F1': '\u065E'})
 
 
@@ -89,6 +94,15 @@ def css(cfg, base, riwaya=None):
         if key in ('hz_start', 'hz_end') and cfg.get(key) is None: z = sq    # older setting «الآيات»
         if z != 1: out.append('%s{zoom:%.2f}' % (sel, z))
     out.append(".hz .words{font-family:'QuranText','Amiri',serif;font-weight:400}")
+    for key, st in (cfg.get('style') or {}).items():  # one font / colour per line, chosen in the preview bar
+        sel = STYLE_SEL.get(key)
+        if not sel or not isinstance(st, dict): continue
+        both = ','.join(f'{s},{s} *' for s in sel.split(','))
+        if st.get('f') in FONTS:
+            out.append(face('KM-' + st['f'], st['f'], base))
+            out.append("%s{font-family:'KM-%s',serif !important}" % (both, st['f']))
+        if isinstance(st.get('c'), str) and len(st['c']) == 7:
+            out.append('%s{color:%s !important}' % (both, st['c']))
     return ''.join(out)
 
 

@@ -1,5 +1,5 @@
 """Desktop window (pywebview / Edge WebView2 – Chromium) + local API. No external browser, no console."""
-import json, os, threading, socket, urllib.parse, base64, io, time, datetime as dt
+import re, json, os, threading, socket, urllib.parse, base64, io, time, datetime as dt
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from . import paths, config, core, render, themes, calc, ahzab, fonts_cfg
 
@@ -56,6 +56,15 @@ def apply(changes):
         if k in changes and (changes[k] in fonts_cfg.FONTS or (k == 'font_quran' and changes[k] == 'auto')): d[k] = changes[k]
     for k in fonts_cfg.SIZES + tuple(x[0] for x in fonts_cfg.HZ_LINES):
         if k in changes: d[k] = max(60, min(500, int(changes[k] or 100)))
+    if isinstance(changes.get('style'), dict):          # per-line font / colour (one control bar)
+        st = {}
+        for k, v in changes['style'].items():
+            if k not in fonts_cfg.STYLE_SEL or not isinstance(v, dict): continue
+            e = {}
+            if v.get('f') in fonts_cfg.FONTS: e['f'] = v['f']
+            if isinstance(v.get('c'), str) and re.fullmatch(r'#[0-9a-fA-F]{6}', v['c']): e['c'] = v['c']
+            if e: st[k] = e
+        d['style'] = st
     if 'hizb_date' in changes: d['hizb_date'] = changes['hizb_date'] or ''
     if 'tune' in changes: d['tune'] = {k: int(v or 0) for k, v in changes['tune'].items()}
     if 'mosque_image' in changes: d['mosque_image'] = changes['mosque_image']

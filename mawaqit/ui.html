@@ -67,6 +67,8 @@ h1 .ico { width: 28px; height: 28px }
 .sizebar select { width: auto; font-size: 12px; padding: 4px 6px } .sizebar input[type=range] { width: 150px }
 .sizebar input[type=number] { width: 62px; font-size: 12px; padding: 4px; text-align: center; font-family: 'Segoe UI' }
 .sizebar button { border: 0; background: transparent; font-size: 16px; cursor: pointer }
+.sizebar #sz_font { max-width: 170px } .sizebar input[type=color] { width: 30px; height: 26px; padding: 0; border: 1px solid #ccd; border-radius: 6px; background: none; cursor: pointer }
+.sizebar input[type=color].auto { opacity: .45 }
 .fontrow { margin-bottom: 6px } .fontrow select { font-size: 12px }
 .fsample { font-size: 19px; line-height: 1.6; padding: 2px 8px; margin-top: 3px; border-radius: 8px; background: rgba(255,255,255,.45); text-align: center; white-space: nowrap; overflow: hidden }
 .sizes { display: grid; grid-template-columns: auto 1fr 38px; gap: 4px 8px; align-items: center; font-size: 12px }
@@ -167,15 +169,10 @@ body[data-theme=y2k] h1 { background: linear-gradient(90deg,#ff2fb8,#7a00ff,#00b
   <label>اللغة الثانية على الورقة</label><select id="lang2"><option value="fr">Français</option><option value="en">English</option></select>
  </div>
 
- <div class="panel"><h2><svg class="ico"><use href="#i-brush"/></svg>الخطوط وأحجامها</h2>
-  <div class="fontrow"><label>العناوين والأرقام</label><select id="font_title"></select><div class="fsample" id="s_font_title">مواقيت الصلاة ١٢:٣٠</div></div>
-  <div class="fontrow"><label>أسماء الشهور والدعاء</label><select id="font_deco"></select><div class="fsample" id="s_font_deco">جمادى الثانية</div></div>
-  <div class="fontrow"><label>النصوص</label><select id="font_text"></select><div class="fsample" id="s_font_text">المناسبات والأعياد</div></div>
-  <div class="fontrow"><label>الآيات (ورقة الحزب)</label><select id="font_quran"></select><div class="fsample q" id="s_font_quran">سَيَقُولُ اُ۬لسُّفَهَآءُ مِنَ اَ۬لنَّاسِ</div></div>
-  <button class="btn sec small" style="margin-top:8px" onclick="resetFonts()">الخطوط والأحجام الأصلية</button>
-  <div class="status" style="margin-top:6px">لتغيير الحجم: اضغط على السطر في المعاينة، ثم حرّك المقبض أو اكتب الرقم في الشريط أعلى المعاينة.</div>
+ <div class="panel hide" id="fontsold">
+  <select id="font_title"></select><select id="font_deco"></select><select id="font_text"></select><select id="font_quran"></select>
+  <div id="s_font_title"></div><div id="s_font_deco"></div><div id="s_font_text"></div><div id="s_font_quran"></div>
  </div>
-
  <div class="panel"><h2><svg class="ico"><use href="#i-print"/></svg>الطباعة</h2>
   <div class="status">اختر عدد الأوراق من كل حجم، والطابعة لكل حجم (0 = لا شيء).</div>
   <div class="jobs">
@@ -220,9 +217,11 @@ body[data-theme=y2k] h1 { background: linear-gradient(90deg,#ff2fb8,#7a00ff,#00b
 <main>
  <div class="panel"><h2><svg class="ico"><use href="#i-brush"/></svg>التصميم</h2><div class="gallery" id="gallery"></div></div>
  <div class="panel preview" id="pv"><div class="sizebar" title="اضغط على أي سطر في الورقة لاختياره">
-  <svg class="ico"><use href="#i-brush"/></svg><span>حجم</span><select id="sz_target"></select>
-  <input type="range" id="sz_range" min="60" max="500" step="5"><input type="number" id="sz_num" min="60" max="500" step="5"><b>%</b>
-  <button id="sz_reset" title="100%">↺</button></div><div class="vtabs"><button id="v_month" onclick="setView('month')">ورقة المواقيت</button><button id="v_hizb" onclick="setView('hizb')">ورقة الحزب</button></div><iframe class="frame" id="frame"></iframe></div>
+  <svg class="ico"><use href="#i-brush"/></svg><select id="sz_target" title="السطر (أو اضغط عليه في الورقة)"></select>
+  <select id="sz_font" title="نوع الخط"></select>
+  <input type="range" id="sz_range" min="60" max="500" step="5" title="الحجم"><input type="number" id="sz_num" min="60" max="500" step="5"><b>%</b>
+  <input type="color" id="sz_color" title="اللون">
+  <button id="sz_reset" title="إرجاع هذا السطر إلى أصله">↺</button><button id="sz_all" title="إرجاع كل الخطوط والأحجام والألوان">⟲</button></div><div class="vtabs"><button id="v_month" onclick="setView('month')">ورقة المواقيت</button><button id="v_hizb" onclick="setView('hizb')">ورقة الحزب</button></div><iframe class="frame" id="frame"></iframe></div>
 </main>
 <div id="toast"></div>
 
@@ -298,10 +297,20 @@ const SZ_HIZB = [['size_title', 'رأس الورقة', '.head'], ['hz_when', 'ا
 let SZ = 'size_table';
 const szList = () => VIEW === 'hizb' ? SZ_HIZB : SZ_MONTH;
 function szVal(k) { return S.cfg[k] || ((k === 'hz_start' || k === 'hz_end') && S.cfg.size_quran) || 100; }
+const DEF_COLOR = '#1d2b36';
+function stOf(k) { return (S.cfg.style || {})[k] || {}; }
 function sizeUI() {
   const list = szList(); if (!list.some(([k]) => k === SZ)) SZ = list[VIEW === 'hizb' ? 4 : 1][0];
   $('sz_target').innerHTML = list.map(([k, lab]) => `<option value="${k}">${lab}</option>`).join('');
-  $('sz_target').value = SZ; $('sz_range').value = $('sz_num').value = szVal(SZ); markPick();
+  $('sz_target').value = SZ; $('sz_range').value = $('sz_num').value = szVal(SZ);
+  const st = stOf(SZ); $('sz_font').value = st.f || ''; $('sz_font').style.fontFamily = st.f ? `'pv-${st.f}', serif` : '';
+  $('sz_color').value = st.c || DEF_COLOR; $('sz_color').classList.toggle('auto', !st.c); markPick();
+}
+function stSet(patch) {           // font / colour of the chosen line
+  const all = Object.assign({}, S.cfg.style || {}), e = Object.assign({}, all[SZ] || {}, patch);
+  for (const k of Object.keys(e)) if (!e[k]) delete e[k];
+  if (Object.keys(e).length) all[SZ] = e; else delete all[SZ];
+  S.cfg.style = all; change({style: all}, false);
 }
 function szSet(v) { v = Math.max(60, Math.min(500, Math.round(+v || 100))); $('sz_range').value = $('sz_num').value = v;
   S.cfg[SZ] = v; change({[SZ]: v}, false); }
@@ -310,7 +319,12 @@ function sizeInit() {
   $('sz_range').oninput = () => { $('sz_num').value = $('sz_range').value; };
   $('sz_range').onchange = () => szSet($('sz_range').value);
   $('sz_num').onchange = () => szSet($('sz_num').value);
-  $('sz_reset').onclick = () => szSet(100);
+  $('sz_reset').onclick = () => { S.cfg[SZ] = 100; const all = Object.assign({}, S.cfg.style || {}); delete all[SZ]; S.cfg.style = all;
+    change({[SZ]: 100, style: all}, false); };
+  $('sz_all').onclick = () => { if (confirm('إرجاع كل الخطوط والأحجام والألوان إلى أصلها؟')) resetFonts(); };
+  $('sz_font').innerHTML = '<option value="">خط التصميم الأصلي</option>' + S.fonts.map(([k, ar]) => `<option value="${k}" style="font-family:'pv-${k}',serif">${ar}</option>`).join('');
+  $('sz_font').onchange = () => stSet({f: $('sz_font').value});
+  $('sz_color').onchange = () => stSet({c: $('sz_color').value});
 }
 function markPick() {      // outline the chosen line in the preview
   const d = $('frame').contentDocument; if (!d || !d.body) return;
@@ -331,7 +345,7 @@ function fontsUI() {
   }
   sizeUI();
 }
-function resetFonts() { change(Object.assign({}, FONT_DEF, {size_quran: 100}, Object.fromEntries([...SZ_MONTH, ...SZ_HIZB].map(([k]) => [k, 100])))); }
+function resetFonts() { change(Object.assign({}, FONT_DEF, {size_quran: 100, style: {}}, Object.fromEntries([...SZ_MONTH, ...SZ_HIZB].map(([k]) => [k, 100])))); }
 function mosquesUI() {
   const list = S.cfg.mosques || [], cur = (S.cfg.mosque_name || '').trim();
   $('mosques').innerHTML = `<option value="">${list.length ? '— اختر مسجداً محفوظاً (' + list.length + ') —' : '— لا توجد مساجد محفوظة بعد —'}</option>` +
