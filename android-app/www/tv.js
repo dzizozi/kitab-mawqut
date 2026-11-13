@@ -13,7 +13,7 @@ const KEYS = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
 const PRAYERS = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
 
 export const TV_DEFAULTS = {
-  tv_theme: 'zellige', riwaya: 'warsh', digits: 'auto', tv_font: 'cairo', tv_scale: 100, tv_res: 'auto',
+  tv_theme: 'zellige', riwaya: 'warsh', digits: 'auto', tv_font: 'cairo', tv_scale: 100, tv_res: 'auto', method_auto: true,
   iqama: { fajr: 20, dhuhr: 15, asr: 15, maghrib: 7, isha: 10 }, jumua_iqama: 30,
   prayer_min: 10, adhkar_min: 7, friday_before: 45,
   tv_news: 'يُرجى إغلاق الهاتف أو جعله على الصامت قبل الدخول في الصلاة\nسَوُّوا صُفُوفَكُمْ، فَإِنَّ تَسْوِيَةَ الصُّفُوفِ مِنْ إِقَامَةِ الصَّلَاةِ\nحافظوا على نظافة المسجد',
@@ -59,16 +59,29 @@ const THEMES = {
     --line:rgba(15,94,79,.18);--accent:#0f5e4f;--accent2:#b8862f;--hl:#0f5e4f;--hlfg:#ffffff;--nm:#0f5e4f;--band:none`],
 };
 
-const ADHKAR = [
-  ['أذكار بعد الصلاة', ['أَسْتَغْفِرُ اللهَ ، أَسْتَغْفِرُ اللهَ ، أَسْتَغْفِرُ اللهَ',
-    'اللَّهُمَّ أَنْتَ السَّلَامُ وَمِنْكَ السَّلَامُ ، تَبَارَكْتَ يَا ذَا الْجَلَالِ وَالْإِكْرَامِ'], 'رواه مسلم'],
-  ['أذكار بعد الصلاة', ['لَا إِلَهَ إِلَّا اللهُ وَحْدَهُ لَا شَرِيكَ لَهُ ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ وَهُوَ عَلَى كُلِّ شَيْءٍ قَدِيرٌ',
-    'اللَّهُمَّ لَا مَانِعَ لِمَا أَعْطَيْتَ ، وَلَا مُعْطِيَ لِمَا مَنَعْتَ ، وَلَا يَنْفَعُ ذَا الْجَدِّ مِنْكَ الْجَدُّ'], 'متفق عليه'],
-  ['التسبيح', ['سُبْحَانَ اللهِ <i>33</i> ، الْحَمْدُ لِلَّهِ <i>33</i> ، اللهُ أَكْبَرُ <i>33</i>',
-    'وَتَمَامُ الْمِائَةِ : لَا إِلَهَ إِلَّا اللهُ وَحْدَهُ لَا شَرِيكَ لَهُ ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ وَهُوَ عَلَى كُلِّ شَيْءٍ قَدِيرٌ'], 'رواه مسلم'],
-  ['kursi'], ['quls'],
-];
-const AFTER_FAJR_MAGHRIB = ['بعد صلاة الصبح والمغرب', ['لَا إِلَهَ إِلَّا اللهُ وَحْدَهُ لَا شَرِيكَ لَهُ ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ ، يُحْيِي وَيُمِيتُ ، وَهُوَ عَلَى كُلِّ شَيْءٍ قَدِيرٌ <i>10</i>'], 'رواه الترمذي'];
+// adhkar after the prayer: editable text, one slide per paragraph (see the settings hint)
+const DEF_ADHKAR = `# أذكار بعد الصلاة
+أَسْتَغْفِرُ اللهَ ، أَسْتَغْفِرُ اللهَ ، أَسْتَغْفِرُ اللهَ
+اللَّهُمَّ أَنْتَ السَّلَامُ وَمِنْكَ السَّلَامُ ، تَبَارَكْتَ يَا ذَا الْجَلَالِ وَالْإِكْرَامِ
+— رواه مسلم
+
+# أذكار بعد الصلاة
+لَا إِلَهَ إِلَّا اللهُ وَحْدَهُ لَا شَرِيكَ لَهُ ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ وَهُوَ عَلَى كُلِّ شَيْءٍ قَدِيرٌ
+اللَّهُمَّ لَا مَانِعَ لِمَا أَعْطَيْتَ ، وَلَا مُعْطِيَ لِمَا مَنَعْتَ ، وَلَا يَنْفَعُ ذَا الْجَدِّ مِنْكَ الْجَدُّ
+— متفق عليه
+
+# التسبيح
+سُبْحَانَ اللهِ (33) ، الْحَمْدُ لِلَّهِ (33) ، اللهُ أَكْبَرُ (33)
+وَتَمَامُ الْمِائَةِ : لَا إِلَهَ إِلَّا اللهُ وَحْدَهُ لَا شَرِيكَ لَهُ ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ وَهُوَ عَلَى كُلِّ شَيْءٍ قَدِيرٌ
+— رواه مسلم
+
+[آية الكرسي]
+
+[المعوذات]`;
+const ADHKAR_EXTRA = `# بعد صلاة الصبح والمغرب
+لَا إِلَهَ إِلَّا اللهُ وَحْدَهُ لَا شَرِيكَ لَهُ ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ ، يُحْيِي وَيُمِيتُ ، وَهُوَ عَلَى كُلِّ شَيْءٍ قَدِيرٌ (10)
+— رواه الترمذي`;      // added after Fajr and Maghrib when their own list is empty
+const ADK_KEYS = [['all', 'كل الصلوات'], ['fajr', 'الصبح'], ['dhuhr', 'الظهر'], ['asr', 'العصر'], ['maghrib', 'المغرب'], ['isha', 'العشاء'], ['jumua', 'الجمعة']];
 
 let cfg, Q = null, AHZAB = null, MOSQ = null, DAYS = {}, slideI = -1, lastSlide = 0, adhkarI = 0, lastAdhkar = 0, lastBuild = '';
 
@@ -100,6 +113,8 @@ function load() {
   try { c = JSON.parse(localStorage.getItem('cfg') || '{}'); } catch (e) { }
   const out = { ...model.DEFAULTS, ...TV_DEFAULTS, ...c };
   out.iqama = { ...TV_DEFAULTS.iqama, ...(c.iqama || {}) };
+  out.tv_adhkar = { all: DEF_ADHKAR, ...(c.tv_adhkar || {}) };
+  out.tune = { fajr: 0, sunrise: 0, dhuhr: 0, asr: 0, maghrib: 0, isha: 0, ...(c.tune || {}) };
   if (!THEMES[out.tv_theme]) out.tv_theme = 'zellige';
   return out;
 }
@@ -160,16 +175,33 @@ function slides(row) {
     list.push(`<h3>إعلان للمصلين</h3><div class="fit"><div class="big">${esc(line)}</div></div>`);
   return list.length ? list : [`<div class="fit"><div class="big">${esc(cfg.mosque_name || 'كتابا موقوتا')}</div></div>`];
 }
-function adhkarSlide(i, prayer) {
+function parseAdhkar(text) {
+  return String(text || '').replace(/\r/g, '').split(/\n\s*\n/).map(p => p.trim()).filter(Boolean).map(p => {
+    const lines = p.split('\n').map(s => s.trim()).filter(Boolean);
+    if (lines.length === 1 && /^\[.*\]$/.test(lines[0])) return { special: lines[0] };
+    let title = '', src = '';
+    if (lines[0].startsWith('#')) title = lines.shift().replace(/^#+\s*/, '');
+    if (lines.length && /^[—–-]/.test(lines[lines.length - 1])) src = lines.pop().replace(/^[—–-]+\s*/, '');
+    return { title, lines, src };
+  });
+}
+function adhkarList(key) {
+  const own = ((cfg.tv_adhkar || {})[key] || '').trim();
+  const list = parseAdhkar(own || cfg.tv_adhkar.all || DEF_ADHKAR);
+  if (!own && (key === 'fajr' || key === 'maghrib')) list.splice(Math.min(3, list.length), 0, ...parseAdhkar(ADHKAR_EXTRA));
+  return list.length ? list : parseAdhkar(DEF_ADHKAR);
+}
+function adhkarSlide(i, key) {
   const r = cfg.riwaya === 'hafs' ? 'hafs' : 'warsh';
-  const list = (prayer === 'fajr' || prayer === 'maghrib') ? [...ADHKAR.slice(0, 3), AFTER_FAJR_MAGHRIB, ...ADHKAR.slice(3)] : ADHKAR;
-  const A = list[i % list.length];
-  if (A[0] === 'kursi' && Q) return `<h2>آية الكرسي</h2><div class="fit"><div class="q big2">${qt(Q[r].kursi.join(' ۝ '))}</div></div><div class="src">${Q[r].kursi_ref}</div>`;
-  if (A[0] === 'quls' && Q) {
+  const list = adhkarList(key), A = list[i % list.length];
+  if (A.special && /كرسي/.test(A.special) && Q) return `<h2>آية الكرسي</h2><div class="fit"><div class="q big2">${qt(Q[r].kursi.join(' ۝ '))}</div></div><div class="src">${Q[r].kursi_ref}</div>`;
+  if (A.special && /معوذ|إخلاص|الإخلاص/.test(A.special) && Q) {
     const s = (name, v) => `<div class="sura"><b>سورة ${name}</b><div class="q">${qt(v.join(' ۝ '))}</div></div>`;
     return `<h2>المعوذات</h2><div class="fit">${s('الإخلاص', Q[r].ikhlas)}${s('الفلق', Q[r].falaq)}${s('الناس', Q[r].nas)}</div>`;
   }
-  return `<h2>${A[0]}</h2><div class="fit">${A[1].map(t => `<p>${t}</p>`).join('')}</div><div class="src">${A[2]}</div>`;
+  if (A.special) return `<div class="fit"><p>${esc(A.special.slice(1, -1))}</p></div>`;
+  const line = s => esc(s).replace(/\((\d+)\)/g, (m, n) => `<i>${dg(n)}</i>`);
+  return `${A.title ? `<h2>${esc(A.title)}</h2>` : ''}<div class="fit">${A.lines.map(l => `<p>${line(l)}</p>`).join('')}</div>${A.src ? `<div class="src">${esc(A.src)}</div>` : ''}`;
 }
 // biggest size that fits: one measurement, then scale the «.fit» block (transform keeps the text sharp)
 function fitBox(root) {
@@ -246,8 +278,9 @@ function render() {
   } else if (phase === 'prayer') {
     html = `<div class="ovt">الصلاة قائمة</div><div class="ovl">صلاة ${NAMES[cur.k]}</div><div class="ovn">يُرجى إغلاق الهاتف</div>`;
   } else if (phase === 'adhkar') {
+    if (!lastAdhkar) lastAdhkar = +now;
     if (now - lastAdhkar > 25000) { lastAdhkar = +now; adhkarI++; }
-    html = `<div class="adk">${adhkarSlide(adhkarI, cur.base)}</div>`;
+    html = `<div class="adk">${adhkarSlide(adhkarI, cur.k)}</div>`;
   } else if (phase === 'jumua') {
     const toAdhan = cur.adhan > now;
     html = `<div class="ovt">صلاة الجمعة</div><div class="hadith"><div class="fit">${(cfg.tv_hadith || '').split('\n').map(l => `<p>${esc(l)}</p>`).join('')}</div></div>
@@ -276,10 +309,21 @@ async function mosques() {
 
 // ---------------------------------------------------------------- settings (remote-control friendly)
 let RES = null;
+const NUM = (v, d = 0) => { const s = String(v ?? '').replace(/[٠-٩]/g, c => '٠١٢٣٤٥٦٧٨٩'.indexOf(c)).replace(/[۰-۹]/g, c => '۰۱۲۳۴۵۶۷۸۹'.indexOf(c)).replace(/[−–]/g, '-').trim();
+  const n = parseInt(s, 10); return isNaN(n) ? d : n; };
+// number fields as text: the TV's Arabic locale would otherwise show them in Eastern digits
+const numIn = (id, v, extra = '') => `<input type="text" inputmode="numeric" dir="ltr" class="num" id="${id}" value="${v}"${extra}>`;
+function srcInfo() {
+  if (cfg.country === 'MA' && cfg.method === 'MOROCCO' && cfg.habous_id) return `المصدر: وزارة الأوقاف والشؤون الإسلامية – مواقيت مدينة ${esc(cfg.city_ar)}`;
+  const m = S.METHODS[cfg.method]; return `المصدر: حساب فلكي – ${m ? m.ar : cfg.method} – ${esc(cfg.city_ar || cfg.city_name)}`;
+}
 function settingsHtml() {
   const th = Object.entries(THEMES).map(([k, v]) => `<option value="${k}">${v[0]}</option>`).join('');
   const fo = S.FONTS.filter(f => !f[0].startsWith('kfgqpc')).map(f => `<option value="${f[0]}">${f[1]}</option>`).join('');
-  const iq = PRAYERS.map(k => `<label>${NAMES[k]}<input type="number" min="0" max="90" data-iq="${k}" value="${cfg.iqama[k]}"></label>`).join('');
+  const iq = PRAYERS.map(k => `<label>${NAMES[k]}${numIn('iq-' + k, cfg.iqama[k], ` data-iq="${k}"`)}</label>`).join('');
+  const tn = KEYS.map(k => `<label>${NAMES[k]}${numIn('tn-' + k, (cfg.tune || {})[k] || 0, ` data-tn="${k}"`)}</label>`).join('');
+  const me = S.METHOD_ORDER.map(k => `<option value="${k}">${S.METHODS[k].ar}</option>`).join('');
+  const ak = ADK_KEYS.map(([k, n]) => `<option value="${k}">${n}</option>`).join('');
   return `<div class="set"><h2>إعدادات شاشة المسجد</h2>
    <div class="g2">
     <label>اسم المسجد (اكتب أوله للبحث في قائمة المساجد)<input type="text" id="s-mosque" value="${esc(cfg.mosque_name)}"><div id="s-mosques" class="cl"></div></label>
@@ -287,21 +331,35 @@ function settingsHtml() {
     <label>البلد<select id="s-country"></select></label>
     <label>المدينة (اكتب للبحث)<input type="search" id="s-city" placeholder="${esc(cfg.city_ar)}"><div id="s-cities" class="cl"></div></label>
     <label>نوع الخط<select id="s-font">${fo}</select><div class="fprev" id="s-fprev">الصلاة القادمة 12:30 — ١٢:٣٠</div></label>
-    <label>حجم الخط (%)<input type="number" id="s-scale" min="60" max="200" step="5" value="${cfg.tv_scale}"></label>
+    <label>حجم الخط (%)${numIn('s-scale', cfg.tv_scale)}</label>
     <label>الرواية (الأحزاب والآيات)<select id="s-riwaya"><option value="warsh">ورش عن نافع</option><option value="hafs">حفص عن عاصم</option></select></label>
-    <label>شكل الأرقام<select id="s-digits"><option value="auto">تلقائي</option><option value="western">0123</option><option value="eastern">٠١٢٣</option></select></label>
+    <label>شكل الأرقام على الشاشة<select id="s-digits"><option value="auto">تلقائي حسب البلد</option><option value="western">0123</option><option value="eastern">٠١٢٣</option></select></label>
     <label>دقة الشاشة<select id="s-res"><option value="auto">تلقائي (أعلى دقة يدعمها الجهاز)</option><option value="2160">4K – 3840×2160</option><option value="1080">Full HD – 1920×1080</option></select><small id="s-resinfo"></small></label>
    </div>
-   <h3>الإقامة بعد الأذان (بالدقائق)</h3><div class="g5">${iq}<label>الجمعة<input type="number" min="0" max="90" id="s-jiq" value="${cfg.jumua_iqama}"></label></div>
+   <h3>طريقة حساب المواقيت</h3>
+   <label class="chk"><input type="checkbox" id="s-mauto"${cfg.method_auto !== false ? ' checked' : ''}><span>تلقائي حسب بلد المسجد (في المغرب: مواقيت وزارة الأوقاف لمدينة المسجد)</span></label>
+   <div class="g2"><label>الطريقة (عند إلغاء التلقائي)<select id="s-method">${me}</select></label>
+    <label>صلاة العصر<select id="s-asr"><option value="1">الجمهور (مالكي، شافعي، حنبلي)</option><option value="2">الحنفي</option></select></label></div>
+   <label>تعديل يدوي بالدقائق لمطابقة مواقيت مسجدكم (مثال: 2 أو -3)</label><div class="g6">${tn}</div>
+   <small id="s-src">${srcInfo()}</small>
+   <h3>الإقامة بعد الأذان (بالدقائق)</h3><div class="g6">${iq}<label>الجمعة${numIn('s-jiq', cfg.jumua_iqama)}</label></div>
    <div class="g3">
-    <label>مدة الصلاة (دقيقة)<input type="number" min="3" max="40" id="s-pmin" value="${cfg.prayer_min}"></label>
-    <label>عرض الأذكار بعد الصلاة (دقيقة)<input type="number" min="0" max="30" id="s-amin" value="${cfg.adhkar_min}"></label>
-    <label>عرض حديث الجمعة قبل الأذان (دقيقة)<input type="number" min="0" max="180" id="s-fri" value="${cfg.friday_before}"></label>
+    <label>مدة الصلاة (دقيقة)${numIn('s-pmin', cfg.prayer_min)}</label>
+    <label>عرض الأذكار بعد الصلاة (دقيقة)${numIn('s-amin', cfg.adhkar_min)}</label>
+    <label>عرض حديث الجمعة قبل الأذان (دقيقة)${numIn('s-fri', cfg.friday_before)}</label>
    </div>
-   <label>إعلانات للمصلين (سطر لكل إعلان)<textarea id="s-news" rows="3">${esc(cfg.tv_news)}</textarea></label>
-   <label>حديث الجمعة<textarea id="s-hadith" rows="3">${esc(cfg.tv_hadith)}</textarea></label>
+   <h3>الإعلانات والحديث</h3>
+   <label>إعلانات للمصلين (سطر لكل إعلان – تظهر في اللوحة وفي الشريط المتحرك)<textarea id="s-news" rows="3">${esc(cfg.tv_news)}</textarea></label>
+   <label>حديث الجمعة (يظهر قبل صلاة الجمعة)<textarea id="s-hadith" rows="3">${esc(cfg.tv_hadith)}</textarea></label>
+   <h3>الأذكار بعد الصلاة</h3>
+   <div class="g2"><label>أذكار صلاة<select id="s-adk-p">${ak}</select></label>
+    <div class="row" style="align-items:end"><button id="s-adk-reset">استعادة الأذكار الأصلية</button></div></div>
+   <textarea id="s-adk" rows="9"></textarea>
+   <small>كل فقرة (يفصل بينها سطر فارغ) تظهر في شاشة. السطر الأول إذا بدأ بـ # فهو العنوان، والأخير إذا بدأ بـ — فهو المصدر، و(33) يظهر عدداً.
+    اكتب [آية الكرسي] أو [المعوذات] في فقرة لعرضها بالرسم العثماني. إذا تركت صلاة فارغة تظهر فيها أذكار «كل الصلوات».</small>
    <div class="row"><button id="s-save" class="b1">حفظ وإغلاق</button><button id="s-cancel">إغلاق</button><button id="s-phone">التحويل إلى وضع الهاتف</button></div>
-   <p class="hint">يُفتح هذا الإعداد بزر OK أو Menu في جهاز التحكم. الأسهم للتنقل، وOK للكتابة في خانة. قائمة المساجد من OpenStreetMap (© المساهمون، ODbL).</p></div>`;
+   <p class="hint">يُفتح هذا الإعداد بزر OK أو Menu. الأسهم للتنقل، وOK للكتابة في خانة. الضغط المطوّل على زر الرجوع يعيدك إلى اختيار الوضع (هاتف / مسجد).
+    قائمة المساجد من OpenStreetMap (© المساهمون، ODbL).</p></div>`;
 }
 let cityRows = [], pendingCity = null;
 function suggest(listEl, items) {
@@ -312,11 +370,20 @@ async function openSettings() {
   $('s-country').innerHTML = model.countries().map(([cc, ar]) => `<option value="${cc}">${ar}</option>`).join('');
   $('s-country').value = cfg.country; $('s-theme').value = cfg.tv_theme; $('s-riwaya').value = cfg.riwaya || 'warsh';
   $('s-digits').value = cfg.digits || 'auto'; $('s-font').value = cfg.tv_font; $('s-res').value = cfg.tv_res || 'auto';
+  $('s-method').value = cfg.method; $('s-asr').value = String(cfg.asr || 1);
+  const mAuto = () => { const on = $('s-mauto').checked; $('s-method').disabled = $('s-asr').disabled = on;
+    if (on) { const d = model.countryDefaults($('s-country').value); $('s-method').value = d.method; $('s-asr').value = String(d.asr); } };
+  $('s-mauto').onchange = mAuto; mAuto();
+  const ADK = { ...cfg.tv_adhkar }; let adkKey = 'all';
+  const adkLoad = () => { $('s-adk').value = ADK[adkKey] || ''; $('s-adk').placeholder = adkKey === 'all' ? '' : '(فارغ = نفس أذكار «كل الصلوات»)'; };
+  $('s-adk-p').onchange = () => { ADK[adkKey] = $('s-adk').value; adkKey = $('s-adk-p').value; adkLoad(); };
+  $('s-adk-reset').onclick = e => { e.preventDefault(); ADK[adkKey] = adkKey === 'all' ? DEF_ADHKAR : ''; adkLoad(); };
+  adkLoad();
   const fprev = () => { $('s-fprev').style.fontFamily = `'F-${$('s-font').value}'`; };
   $('s-font').onchange = fprev; fprev();
   $('s-resinfo').textContent = `الآن: ${Math.round(screen.width * devicePixelRatio)}×${Math.round(screen.height * devicePixelRatio)}` + (RES && RES.max ? ` · أقصى ما يدعمه الجهاز: ${RES.max}` : '');
   cityRows = model.cities(cfg.country); pendingCity = null;
-  $('s-country').onchange = () => { cityRows = model.cities($('s-country').value); pendingCity = null; $('s-city').placeholder = 'اختر المدينة'; };
+  $('s-country').onchange = () => { cityRows = model.cities($('s-country').value); pendingCity = null; $('s-city').placeholder = 'اختر المدينة'; mAuto(); };
   $('s-city').oninput = () => {
     const q = AR_NORM($('s-city').value.trim());
     const hits = q ? cityRows.filter(c => AR_NORM(c[1]).includes(q) || AR_NORM(c[2]).includes(q)).slice(0, 8) : [];
@@ -344,21 +411,26 @@ async function openSettings() {
     if (changed) Object.assign(cfg, { country: cc }, model.countryDefaults(cc));
     if (pendingCity) Object.assign(cfg, model.cityInfo(pendingCity.cc, pendingCity.k), { city_key: pendingCity.k });
     else if (changed) { const f = model.cities(cc)[0]; Object.assign(cfg, model.cityInfo(cc, f[0]), { city_key: f[0] }); }
+    cfg.method_auto = $('s-mauto').checked;
+    if (cfg.method_auto) Object.assign(cfg, { method: model.countryDefaults(cfg.country).method, asr: model.countryDefaults(cfg.country).asr });
+    else Object.assign(cfg, { method: $('s-method').value, asr: +$('s-asr').value || 1 });
     if (cfg.country !== 'MA' && cfg.method === 'MOROCCO') cfg.method = S.COUNTRY_METHOD[cfg.country] || 'MWL';
     if (cfg.country !== 'MA' && cfg.hijri_mode === 'morocco') cfg.hijri_mode = 'ummalqura';
+    cfg.tune = Object.fromEntries(KEYS.map(k => [k, Math.max(-60, Math.min(60, NUM($('tn-' + k).value)))]));
+    ADK[adkKey] = $('s-adk').value; cfg.tv_adhkar = ADK;
     const res = $('s-res').value, resChanged = res !== (cfg.tv_res || 'auto');
     Object.assign(cfg, { mosque_name: $('s-mosque').value.trim(), tv_theme: $('s-theme').value, riwaya: $('s-riwaya').value, digits: $('s-digits').value,
-      tv_font: $('s-font').value, tv_scale: Math.max(60, Math.min(200, +$('s-scale').value || 100)), tv_res: res,
-      jumua_iqama: +$('s-jiq').value || 0, prayer_min: +$('s-pmin').value || 10, adhkar_min: +$('s-amin').value || 0,
-      friday_before: +$('s-fri').value || 0, tv_news: $('s-news').value, tv_hadith: $('s-hadith').value });
-    document.querySelectorAll('[data-iq]').forEach(i => cfg.iqama[i.dataset.iq] = +i.value || 0);
+      tv_font: $('s-font').value, tv_scale: Math.max(60, Math.min(200, NUM($('s-scale').value, 100))), tv_res: res,
+      jumua_iqama: NUM($('s-jiq').value), prayer_min: NUM($('s-pmin').value, 10) || 10, adhkar_min: NUM($('s-amin').value),
+      friday_before: NUM($('s-fri').value), tv_news: $('s-news').value, tv_hadith: $('s-hadith').value });
+    document.querySelectorAll('[data-iq]').forEach(i => cfg.iqama[i.dataset.iq] = Math.max(0, NUM(i.value)));
     save(); closeSettings(); applyTheme(); if (resChanged) await applyRes();
     lastBuild = ''; await build(); $('tv-ticker')._t = null; $('tv-panel')._h = null; render();
   };
   $('s-cancel').onclick = closeSettings;
   $('s-phone').onclick = () => { localStorage.setItem('mode', 'phone'); location.reload(); };
   // TV remote: text fields open the on-screen keyboard only after OK (otherwise the arrows get stuck in the keyboard)
-  box.querySelectorAll('input,textarea').forEach(el => {
+  box.querySelectorAll('input:not([type=checkbox]),textarea').forEach(el => {
     el.readOnly = true;
     el.addEventListener('blur', () => { el.readOnly = true; });
     el.addEventListener('click', () => { el.readOnly = false; });
@@ -374,7 +446,8 @@ function onKey(e) {
     return;
   }
   const f = focusables(), el = document.activeElement;
-  const typing = el && !el.readOnly && (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT');
+  const typing = el && !el.readOnly && el.type !== 'checkbox' && (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT');
+  if (e.key === 'Enter' && el && el.type === 'checkbox') { e.preventDefault(); el.click(); return; }
   if (e.key === 'Enter' && el && el.readOnly && (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT')) {
     e.preventDefault(); el.readOnly = false; el.blur(); el.focus(); el.click(); return; }
   if (e.key === 'Escape' || e.key === 'GoBack' || e.key === 'BrowserBack') { e.preventDefault(); closeSettings(); return; }
@@ -484,7 +557,10 @@ body[data-phase=prayer] .ovt{color:#9a8a5a}
 .set small{display:block;color:#789;font-size:12px;margin-top:3px}
 .set input,.set select,.set textarea{display:block;width:100%;font:inherit;font-size:16px;padding:8px 10px;margin-top:3px;border:2px solid #d5dde3;border-radius:10px;background:#f7f9fa;color:#1d2b36}
 .set :focus{outline:none;border-color:#e0a100 !important;box-shadow:0 0 0 3px rgba(224,161,0,.35)}
-.g2{display:grid;grid-template-columns:1fr 1fr;gap:4px 18px}.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:4px 14px}.g5{display:grid;grid-template-columns:repeat(6,1fr);gap:4px 10px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:4px 18px}.g6{display:grid;grid-template-columns:repeat(6,1fr);gap:4px 10px}
+.set input.num{text-align:center;font-family:'UILatin','Noto Sans',sans-serif}
+.set label.chk{display:flex;align-items:center;gap:10px;font-size:15px;color:#1d2b36}.set label.chk input{width:24px;height:24px;margin:0;flex:none}
+.set select:disabled{opacity:.5}.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:4px 14px}.g5{display:grid;grid-template-columns:repeat(6,1fr);gap:4px 10px}
 .set .row{display:flex;gap:10px;margin-top:14px}.set button{font:inherit;font-size:16px;padding:10px 18px;border-radius:10px;border:2px solid #d5dde3;background:#f1f4f6;cursor:pointer}
 .set button.b1{background:#0f5e4f;color:#fff;border-color:#0f5e4f}.set .hint{font-size:12px;color:#789;margin:10px 0 0}
 .fprev{font-size:26px;padding:4px 10px;margin-top:4px;border-radius:10px;background:#f1f4f6;color:#0f5e4f;text-align:center}

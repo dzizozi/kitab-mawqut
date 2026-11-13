@@ -171,10 +171,24 @@ function chooseMode() {
     setTimeout(() => $(matchMedia('(pointer: coarse)').matches ? 'm-phone' : 'm-tv').focus(), 50);
   });
 }
+// long press on the remote «Back» (sent by MainActivity): back to the phone / mosque choice
+window.kmLongBack = () => { localStorage.removeItem('mode'); location.reload(); };
 async function boot() {
-  const mode = localStorage.getItem('mode') || await chooseMode();
-  if (mode === 'tv') { const tv = await import('./tv.js'); await tv.start(); return; }
+  const { enableRemote } = await import('./remote.js');
+  const mode = localStorage.getItem('mode');
+  if (mode !== 'tv') enableRemote();                     // phone layout: usable with a TV remote too
+  if (!mode) await chooseMode();
+  if (localStorage.getItem('mode') === 'tv') { const tv = await import('./tv.js'); await tv.start(); return; }
   $('b-tvmode').onclick = () => { localStorage.setItem('mode', 'tv'); location.reload(); };
+  // short «Back»: close the keyboard → back to the first tab → leave the app
+  const AppP = globalThis.Capacitor && globalThis.Capacitor.Plugins && globalThis.Capacitor.Plugins.App;
+  if (AppP) AppP.addListener('backButton', () => {
+    const el = document.activeElement;
+    if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') && !el.readOnly) { el.blur(); return; }
+    const first = document.querySelector('nav button');
+    if (first && !first.classList.contains('on')) { first.click(); first.focus(); return; }
+    AppP.exitApp();
+  });
   await init();
 }
 boot().catch(e => { console.error(e); toast('خطأ: ' + e.message, 8000); });
