@@ -1,7 +1,7 @@
 """Desktop window (pywebview / Edge WebView2 – Chromium) + local API. No external browser, no console."""
 import json, os, threading, socket, urllib.parse, base64, io, time, datetime as dt
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
-from . import paths, config, core, render, themes, calc, ahzab
+from . import paths, config, core, render, themes, calc, ahzab, fonts_cfg
 
 _lock = threading.Lock()
 STATE = dict(cfg=None, draft=None, model=None, model_sig=None)
@@ -49,6 +49,10 @@ def apply(changes):
     for k in ('hizb_fajr', 'hizb_isha'):
         if k in changes: d[k] = max(1, min(60, int(changes[k] or 1)))
     if changes.get('riwaya') in ('warsh', 'hafs'): d['riwaya'] = changes['riwaya']
+    for k in ('font_title', 'font_deco', 'font_text', 'font_quran'):
+        if k in changes and (changes[k] in fonts_cfg.FONTS or (k == 'font_quran' and changes[k] == 'auto')): d[k] = changes[k]
+    for k in fonts_cfg.SIZES:
+        if k in changes: d[k] = max(60, min(160, int(changes[k] or 100)))
     if 'hizb_date' in changes: d['hizb_date'] = changes['hizb_date'] or ''
     if 'tune' in changes: d['tune'] = {k: int(v or 0) for k, v in changes['tune'].items()}
     if 'mosque_image' in changes: d['mosque_image'] = changes['mosque_image']
@@ -122,7 +126,8 @@ class H(BaseHTTPRequestHandler):
             if u.path == '/api/state':
                 d = draft()
                 return self.send(200, dict(
-                    cfg=d, riwaya=ahzab.riwaya(d), task=core.task_on(), month_start=model(d)['start'].isoformat(), month=month_info(d), version=paths.VERSION, os=('win' if os.name == 'nt' else 'unix'),
+                    cfg=d, riwaya=ahzab.riwaya(d), fonts=fonts_cfg.choices(),
+                    font_files={k: v[2][-1][0] for k, v in fonts_cfg.FONTS.items()}, task=core.task_on(), month_start=model(d)['start'].isoformat(), month=month_info(d), version=paths.VERSION, os=('win' if os.name == 'nt' else 'unix'),
                     countries=config.countries(), cities=config.cities(d['country']),
                     methods=[[k, calc.METHODS[k]['ar'], calc.METHODS[k]['en']] for k in calc.METHOD_ORDER],
                     themes=[[k, themes.THEMES[k]['name_ar'], themes.THEMES[k]['name_en']] for k in themes.ORDER]))

@@ -9,6 +9,8 @@ DEFAULTS = dict(
     lang2='fr', mosque_name='', mosque_image='', dua='',
     theme='glass', printer='', paper='A4', copies=1, auto_print=False,
     a4_copies=1, a4_printer='', a3_copies=0, a3_printer='', hizb_fajr=1, hizb_isha=2, mosques=[],
+    font_title='noto_kufi', font_deco='amiri', font_text='noto_sans', font_quran='auto',
+    size_title=100, size_table=100, size_cards=100, size_quran=100,
 )
 
 

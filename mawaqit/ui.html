@@ -62,6 +62,10 @@ h1 .ico { width: 28px; height: 28px }
 .vtabs button { border: 0; background: transparent; padding: 6px 12px; border-radius: 9px; font: inherit; font-size: 12px; cursor: pointer; color: inherit }
 .vtabs button.on { background: var(--accent); color: #fff; font-weight: 700 }
 .hz-sel { font-size: 12px }
+.fontrow { margin-bottom: 6px } .fontrow select { font-size: 12px }
+.fsample { font-size: 19px; line-height: 1.6; padding: 2px 8px; margin-top: 3px; border-radius: 8px; background: rgba(255,255,255,.45); text-align: center; white-space: nowrap; overflow: hidden }
+.sizes { display: grid; grid-template-columns: auto 1fr 38px; gap: 4px 8px; align-items: center; font-size: 12px }
+.sizes b { font-family: 'Segoe UI'; font-size: 11px; text-align: left }
 h3.sub { font-size: 13px; margin: 14px 0 4px; padding-top: 10px; border-top: 1px dashed rgba(0,0,0,.15) }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 8px } .grid2 .switch { margin: 0; font-size: 11px }
 .jobs { display: grid; gap: 6px; margin-top: 8px }
@@ -157,6 +161,21 @@ body[data-theme=y2k] h1 { background: linear-gradient(90deg,#ff2fb8,#7a00ff,#00b
   <label>اللغة الثانية على الورقة</label><select id="lang2"><option value="fr">Français</option><option value="en">English</option></select>
  </div>
 
+ <div class="panel"><h2><svg class="ico"><use href="#i-brush"/></svg>الخطوط وأحجامها</h2>
+  <div class="fontrow"><label>العناوين والأرقام</label><select id="font_title"></select><div class="fsample" id="s_font_title">مواقيت الصلاة ١٢:٣٠</div></div>
+  <div class="fontrow"><label>أسماء الشهور والدعاء</label><select id="font_deco"></select><div class="fsample" id="s_font_deco">جمادى الثانية</div></div>
+  <div class="fontrow"><label>النصوص</label><select id="font_text"></select><div class="fsample" id="s_font_text">المناسبات والأعياد</div></div>
+  <div class="fontrow"><label>الآيات (ورقة الحزب)</label><select id="font_quran"></select><div class="fsample q" id="s_font_quran">سَيَقُولُ اُ۬لسُّفَهَآءُ مِنَ اَ۬لنَّاسِ</div></div>
+  <h3 class="sub">أحجام الخطوط</h3>
+  <div class="sizes">
+   <label>العناوين</label><input type="range" id="size_title" min="60" max="160" step="5"><b id="v_size_title"></b>
+   <label>جدول المواقيت</label><input type="range" id="size_table" min="60" max="160" step="5"><b id="v_size_table"></b>
+   <label>البطاقات والتذييل</label><input type="range" id="size_cards" min="60" max="160" step="5"><b id="v_size_cards"></b>
+   <label>الآيات</label><input type="range" id="size_quran" min="60" max="160" step="5"><b id="v_size_quran"></b>
+  </div>
+  <button class="btn sec small" style="margin-top:8px" onclick="resetFonts()">الخطوط والأحجام الأصلية</button>
+ </div>
+
  <div class="panel"><h2><svg class="ico"><use href="#i-print"/></svg>الطباعة</h2>
   <div class="status">اختر عدد الأوراق من كل حجم، والطابعة لكل حجم (0 = لا شيء).</div>
   <div class="jobs">
@@ -243,6 +262,31 @@ async function loadAhzab() {
     $('hizb_fajr').innerHTML = $('hizb_isha').innerHTML = opts;
     $('hizb_fajr').value = f; $('hizb_isha').value = i;
 }
+const FONT_KEYS = ['font_title','font_deco','font_text','font_quran'], SIZE_KEYS = ['size_title','size_table','size_cards','size_quran'];
+const FONT_DEF = {font_title: 'noto_kufi', font_deco: 'amiri', font_text: 'noto_sans', font_quran: 'auto'};
+function fontsInit() {
+  const st = document.createElement('style');
+  st.textContent = Object.entries(S.font_files).map(([k, f]) => `@font-face{font-family:'pv-${k}';src:url('/fonts/${f}')}`).join('');
+  document.head.appendChild(st);
+  const opts = S.fonts.map(([k, ar, style]) => `<option value="${k}">${ar} — ${style}</option>`).join('');
+  for (const k of FONT_KEYS) {
+    $(k).innerHTML = (k === 'font_quran' ? '<option value="auto">تلقائي – العثماني حسب الرواية (ورش / حفص)</option>' : '') + opts;
+    $(k).onchange = () => { const v = $(k).value; S.cfg[k] = v; fontsUI(); change({[k]: v}, true); };
+  }
+  for (const k of SIZE_KEYS) {
+    $(k).oninput = () => { $('v_' + k).textContent = $(k).value + '%'; };
+    $(k).onchange = () => change({[k]: +$(k).value}, true);
+  }
+}
+function fontsUI() {
+  for (const k of FONT_KEYS) {
+    $(k).value = S.cfg[k] || FONT_DEF[k];
+    let v = $(k).value; if (v === 'auto') v = ($('riwaya').value === 'hafs') ? 'kfgqpc_hafs' : 'kfgqpc_warsh';
+    $('s_' + k).style.fontFamily = `'pv-${v}', serif`;
+  }
+  for (const k of SIZE_KEYS) { $(k).value = S.cfg[k] || 100; $('v_' + k).textContent = (S.cfg[k] || 100) + '%'; }
+}
+function resetFonts() { change(Object.assign({}, FONT_DEF, Object.fromEntries(SIZE_KEYS.map(k => [k, 100])))); }
 function mosquesUI() {
   const list = S.cfg.mosques || [], cur = (S.cfg.mosque_name || '').trim();
   $('mosques').innerHTML = `<option value="">${list.length ? '— اختر مسجداً محفوظاً (' + list.length + ') —' : '— لا توجد مساجد محفوظة بعد —'}</option>` +
@@ -284,7 +328,7 @@ function showForm() {
   PR.forEach(([k]) => $('t_' + k).value = (c.tune || {})[k] || 0);
   $('imgph').innerHTML = c.mosque_image ? `<img src="/sheet-img?${Date.now()}">` : '<svg class="ico"><use href="#i-img"/></svg>';
   $('imgdel').classList.toggle('hide', !c.mosque_image);
-  mosquesUI();
+  mosquesUI(); if (S.fonts) fontsUI();
   taskUI();
 }
 function monthUI(m) { $('month').innerHTML = `الشهر الحالي: <b>${m.name}</b> – بدأ <b>${m.start}</b><br>القادم: <b>${m.next}</b>`; }
@@ -310,10 +354,11 @@ async function load() {
   $('tune').innerHTML = PR.map(([k, n]) => `<div><label>${n}</label><input type="number" id="t_${k}" min="-30" max="30"></div>`).join('');
   $('gallery').innerHTML = S.themes.map(([k, ar, en]) => `<div class="th" data-k="${k}" onclick="setTheme('${k}')">
      <div class="mini"><iframe data-k="${k}" loading="lazy" tabindex="-1"></iframe></div><span>${ar}</span><small>${en}</small></div>`).join('');
+  fontsInit();
   fillCities(S.cities); monthUI(S.month); showForm();
   $('mosques').onchange = pickMosque;
   $('riwaya').value = S.riwaya || 'warsh';
-  $('riwaya').onchange = () => loadAhzab().then(() => hizbChange());
+  $('riwaya').onchange = () => { fontsUI(); loadAhzab().then(() => hizbChange()); };
   loadAhzab();
   hmInfo();
   for (const k of ['hm_copies','hm_duplex']) $(k).onchange = hmInfo;

@@ -1,6 +1,6 @@
 """HTML of the monthly sheet (theme-aware, bilingual: Arabic + French/English)."""
 import html, datetime as dt, pathlib
-from . import themes
+from . import themes, fonts_cfg
 from .events import HIJRI, DAYS, GREG, UI, greg_ar
 
 DEFS = '''<svg width="0" height="0" style="position:absolute"><defs>
@@ -116,7 +116,7 @@ def render_html(M, cfg, theme=None, font_base='/fonts/'):
                 % (UI['in_city'][0], e(city_ar), e(cfg.get('city_name', ''))))
 
     return f'''<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>{e(month_ar)} {M['annee']}</title>
-<style>{font_css(font_base)}{themes.css_for(theme)}</style></head><body class="t-{theme}">{DEFS}{BGDECO}
+<style>{font_css(font_base)}{themes.css_for(theme)}{fonts_cfg.css(cfg, font_base)}</style></head><body class="t-{theme}">{DEFS}{BGDECO}
 <div class="page">
  <div class="panel head">
   <div class="h-right"><div class="h-title">{UI['title'][0]}</div><div class="h-sub">{UI['title'][L]}</div></div>
@@ -184,20 +184,23 @@ def render_hizb_html(H, cfg, theme=None, font_base='/fonts/'):
         left = ('<div class="h-left"><div class="h-title">%s %s</div><div class="h-sub">%s</div></div>'
                 % (UI['in_city'][0], e(city_ar), e(cfg.get('city_name', ''))))
 
+    qf = fonts_cfg.quran_font(cfg, H.get('riwaya') or 'warsh')
+    qt = lambda s: e(fonts_cfg.quran_text(s, qf))
+
     def card(h, label, label2):
         return ('<div class="panel card"><div class="when">%s <small>%s</small></div>'
                 '<div class="num month">الحزب %d<small>Hizb %d / 60</small></div>'
                 '<div class="rng"><span class="lb"><i>بدايته</i> سورة %s · الآية <b>%d</b></span><div class="words">%s</div>'
                 '<span class="lb"><i>نهايته</i> سورة %s · الآية <b>%d</b></span><div class="words end">%s</div></div></div>'
-                % (label, label2, h['n'], h['n'], e(h['sura_name']), h['aya'], e(h['words']),
-                   e(h['end_sura_name']), h['end_aya'], e(h['end_words'])))
+                % (label, label2, h['n'], h['n'], e(h['sura_name']), h['aya'], qt(h['words']),
+                   e(h['end_sura_name']), h['end_aya'], qt(h['end_words'])))
 
     warsh = H.get('riwaya') == 'warsh'
     src = ('رواية ورش عن نافع · تقسيم الأحزاب وترقيم الآيات حسب المصحف المغربي · النص: مجمع الملك فهد' if warsh
            else 'رواية حفص عن عاصم · ترقيم الآيات الكوفي · النص: مشروع تنزيل tanzil.net')
     day_ar = ORD_AR[day - 1] if 1 <= day <= 30 else str(day)
     return f'''<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>حزب اليوم {day}</title>
-<style>{font_css(font_base)}{themes.css_for(theme)}{HIZB_CSS}</style></head><body class="t-{theme}">{DEFS}{BGDECO}
+<style>{font_css(font_base)}{themes.css_for(theme)}{HIZB_CSS}{fonts_cfg.css(cfg, font_base, H.get('riwaya'))}</style></head><body class="t-{theme}">{DEFS}{BGDECO}
 <div class="page">
  <div class="panel head">
   <div class="h-right"><div class="h-title">الحزب الراتب</div><div class="h-sub">{'Lecture quotidienne du Coran' if L == 1 else 'Daily Quran reading'}</div></div>
