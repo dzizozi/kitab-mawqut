@@ -68,7 +68,26 @@ const CSS = `#km-upd{position:fixed;top:0;left:0;right:0;z-index:9999;display:fl
 function style() { if (!document.getElementById('km-upd-css')) { const s = document.createElement('style'); s.id = 'km-upd-css'; s.textContent = CSS; document.head.appendChild(s); } }
 
 export function updateVisible() { return !!(bar && bar.isConnected); }
-export function hideUpdate() { if (bar) { bar.remove(); bar = null; } }
+let before = null;                       // the element that had the focus before the banner took it
+export function hideUpdate() {
+  const had = barHasFocus();
+  if (bar) { bar.remove(); bar = null; }
+  if (had && before && before.isConnected) before.focus({ preventScroll: true });
+}
+export function barHasFocus() { return !!(bar && bar.contains(document.activeElement)); }
+export function focusBar() {
+  if (!updateVisible()) return false;
+  if (!barHasFocus()) before = document.activeElement;
+  const b = bar.querySelector('#km-upd-go:not([disabled])') || bar.querySelector('#km-upd-no'); b.focus({ preventScroll: true }); return true;
+}
+// TV remote inside the banner: ◀ ▶ between «install» and «later», OK presses, ▼ / Back leave it
+export function barKey(e) {
+  const bs = [...bar.querySelectorAll('button')].filter(b => !b.disabled), i = bs.indexOf(document.activeElement);
+  if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); const d = e.key === 'ArrowLeft' ? 1 : -1; bs[(i + d + bs.length) % bs.length].focus(); return; }
+  if (e.key === 'Enter') { e.preventDefault(); document.activeElement.click(); return; }
+  if (e.key === 'ArrowDown') { e.preventDefault(); if (before && before.isConnected) before.focus({ preventScroll: true }); else document.activeElement.blur(); return; }
+  if (e.key === 'Escape' || e.key === 'GoBack' || e.key === 'BrowserBack') { e.preventDefault(); hideUpdate(); }
+}
 
 function showBar(u, tv) {
   style(); hideUpdate();
@@ -78,7 +97,7 @@ function showBar(u, tv) {
   document.body.appendChild(bar);
   bar.querySelector('#km-upd-go').onclick = () => install(u);
   bar.querySelector('#km-upd-no').onclick = () => { localStorage.setItem('km_upd_later', u.version + '|' + Date.now()); hideUpdate(); };
-  if (tv) { clearTimeout(showBar.t); showBar.t = setTimeout(() => { if (!busy) hideUpdate(); }, 120000); }   // do not cover the mosque screen all day
+  if (tv) { clearTimeout(showBar.t); showBar.t = setTimeout(() => { if (!busy && !barHasFocus()) hideUpdate(); }, 300000); }   // do not cover the mosque screen all day
 }
 function say(html) { if (bar) bar.querySelector('.tx').innerHTML = html; }
 
@@ -116,7 +135,11 @@ export async function checkUpdate({ tv = false, force = false } = {}) {
   const later = (localStorage.getItem('km_upd_later') || '').split('|');
   if (!force && later[0] === u.version && Date.now() - +later[1] < 24 * 3600000) return u;     // «later»: ask again tomorrow
   showBar(u, tv);
-  if (!tv) setTimeout(() => bar && bar.querySelector('#km-upd-go').focus(), 50);
+  setTimeout(() => {                     // the remote can press it right away (unless the user is typing)
+    const a = document.activeElement;
+    if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA') && !a.readOnly) return;
+    focusBar();
+  }, 60);
   return u;
 }
 export function startUpdateChecks(tv) {

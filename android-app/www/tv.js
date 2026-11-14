@@ -776,7 +776,11 @@ let lastNav = 0;
 function onKey(e) {
   if (localStorage.getItem('kmperf')) { const t0 = performance.now(); requestAnimationFrame(() => requestAnimationFrame(() => { const a = document.activeElement; console.log('KMPERF ' + e.key + (e.repeat ? '(rep)' : '') + ' ' + Math.round(performance.now() - t0) + 'ms -> ' + (a.id || a.dataset.zone || a.dataset.list || a.dataset.ak || a.tagName) + ' ro=' + a.readOnly); })); }
   if (U.netVisible()) { U.netKey(e); return; }                         // «connect to the internet» notice
+  if (U.barHasFocus()) { U.barKey(e); return; }                       // the «new version» banner has the focus
   const open = $('tv-settings').classList.contains('on');
+  if (U.updateVisible() && e.key === 'ArrowUp' && (!open || !spatial(focusables(), document.activeElement, 'ArrowUp'))) {   // ▲ from the top reaches the banner
+    e.preventDefault(); U.focusBar(); return;
+  }
   if (!open && U.updateVisible()) {                                    // new version banner: OK = install, Back = hide
     if (e.key === 'Enter') { e.preventDefault(); U.install(); return; }
     if (e.key === 'Escape' || e.key === 'GoBack' || e.key === 'BrowserBack') { e.preventDefault(); U.hideUpdate(); return; }
