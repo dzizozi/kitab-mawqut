@@ -87,6 +87,8 @@ jobs:
           V=${GITHUB_REF_NAME#v}
           mkdir -p ../../dist
           cp app/build/outputs/apk/release/app-release.apk ../../dist/AlKitabAlMawqut-$V-android.apk
+          # same file under a fixed name: releases/latest/download/AlKitabAlMawqut-android.apk always gives the newest version (Downloader code)
+          cp app/build/outputs/apk/release/app-release.apk ../../dist/AlKitabAlMawqut-android.apk
           cp app/build/outputs/bundle/release/app-release.aab ../../dist/AlKitabAlMawqut-$V-android-playstore.aab
       - uses: actions/upload-artifact@v4
         with: { name: android, path: dist/*.apk }

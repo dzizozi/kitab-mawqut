@@ -6,6 +6,24 @@
 
 برنامج مجاني ومفتوح المصدر لأنظمة Windows وmacOS وLinux وAndroid، يصمّم **ورقة مواقيت الصلاة لشهر هجري كامل** جاهزة للتعليق في المسجد أو البيت، ويطبعها **تلقائياً عند دخول كل شهر هجري**.
 
+## 📺 جديد: شاشة المسجد (Android TV / TV Box)
+
+![شاشة المسجد](docs/img/tv-theme-zellige.jpg)
+
+مواقيت الصلاة والإقامة مع العدّ التنازلي، وشاشة «الصلاة قائمة»، والأذكار بعد الصلاة، وحديث الجمعة، والحزب الراتب (ورش أو حفص)، وإعلانات المسجد، وإعلانات صيام التطوع التلقائية (الأيام البيض، عاشوراء، عرفة…). خمسة تصاميم منها زليج فاس وأزرق شفشاون، وإعدادات كاملة بالريموت مع معاينة حيّة، وتحديث تلقائي، وعمل دون إنترنت.
+
+**التثبيت على التلفاز:** ثبّت تطبيق **Downloader** من Google Play، ثم اكتب فيه `is.gd/kitabmawqut_tv`.
+
+📖 **[الدليل الكامل خطوة بخطوة مع الصور](docs/GUIDE.md)**
+
+| الإقامة | الأذكار | صيام التطوع |
+|---|---|---|
+| ![](docs/img/tv-adhan-iqama.jpg) | ![](docs/img/tv-adhkar.jpg) | ![](docs/img/tv-fasting.jpg) |
+| **ليلي ذهبي** | **أزرق شفشاون** | **الإعدادات مع المعاينة** |
+| ![](docs/img/tv-theme-night.jpg) | ![](docs/img/tv-theme-chaouen.jpg) | ![](docs/img/tv-settings-preview.jpg) |
+
+## 🖨️ ورقة مواقيت الشهر (الحاسوب والهاتف)
+
 ![البرنامج](docs/app.jpg)
 
 ![التصاميم الثمانية](docs/designs.jpg)
@@ -29,7 +47,7 @@
 | Windows 10/11 | `AlKitabAlMawqut-Setup-x.y.z.exe` | شغّله واتبع الخطوات (لا يحتاج صلاحيات المدير). إن ظهر تنبيه SmartScreen: «More info» ثم «Run anyway». |
 | macOS (Apple Silicon M1–M4) | `AlKitabAlMawqut-x.y.z-macOS-arm64.dmg` | افتحه واسحب البرنامج إلى Applications. أول مرة: انقر بزر الفأرة الأيمن على البرنامج ← «Open»، أو من System Settings ← Privacy & Security ← «Open Anyway» (البرنامج غير موثّق لدى Apple). |
 | Linux (x86-64) | `AlKitabAlMawqut-x.y.z-linux-x86_64.tar.gz` | فكّ الضغط ثم شغّل `./AlKitabAlMawqut/install.sh` ليظهر في قائمة البرامج. |
-| Android 7+ | `AlKitabAlMawqut-x.y.z-android.apk` | حمّله في الهاتف وافتحه، واسمح بـ«تثبيت تطبيقات من مصادر غير معروفة» عند الطلب. الطباعة وحفظ PDF من نافذة الطباعة في أندرويد، وتذكير بإشعار عند دخول كل شهر هجري. |
+| Android 7+ (هاتف أو تلفاز) | `AlKitabAlMawqut-x.y.z-android.apk` | حمّله في الجهاز وافتحه، واسمح بـ«تثبيت تطبيقات من مصادر غير معروفة» عند الطلب. عند أول تشغيل اختر «في الهاتف» أو «في المسجد». على التلفاز: Downloader ثم `is.gd/kitabmawqut_tv`. التفاصيل في [الدليل](docs/GUIDE.md). |
 
 - لتصميم ورقة PDF والطباعة على macOS وLinux يستعمل البرنامج متصفح Chrome أو Chromium أو Edge أو Firefox المثبّت في الجهاز.
 - **ورقة حزب القراءة** (عادة مغربية): اختر الحزب الذي يُقرأ بعد الصبح والذي يُقرأ بعد المغرب (من 1 إلى 60)، فتُطبع ورقة بنفس التصميم، بدون تاريخ لتصلح لكل شهر، فيها بداية كل حزب ونهايته مع اسم السورة ورقم الآية. زر «اليوم التالي» يتابع الختمة تلقائياً. ويمكن طباعة **ختمة الشهر كاملة** دفعة واحدة: 30 صفحة (حزبان في اليوم) على 15 ورقة A4 بالوجهين (recto-verso). الرواية قابلة للاختيار: **ورش عن نافع** بتقسيم أحزاب المصحف المغربي (النص من مجمع الملك فهد)، أو **حفص عن عاصم** (النص من مشروع تنزيل tanzil.net).
@@ -50,6 +68,7 @@ Téléchargement : page **Releases**.
 ## English
 Free, open-source desktop app (Windows, macOS, Linux) that designs a **monthly (Hijri) prayer-time sheet** in 8 visual styles for any country (22 calculation methods, Hanafi/Shafi'i Asr, Umm al-Qura or local moon-sighting calendar), with your mosque's name and logo, and can print it **automatically when each Hijri month begins**. Morocco uses the official Ministry of Habous timetables.
 Download the installer from **Releases**.
+**Mosque display (Android TV / TV box):** prayer and iqama countdowns, “prayer in progress” screen, post-prayer adhkar, Friday hadith, daily hizb, announcements, automatic voluntary-fasting reminders, 5 themes, full remote-control settings with live preview, in-app updates, works offline. Install with the *Downloader* app: `is.gd/kitabmawqut_tv`. Guide (Arabic, with screenshots): [docs/GUIDE.md](docs/GUIDE.md).
 
 ## Android
 The Android app (`android-app/`, Capacitor) is a JavaScript port of the same engine: identical times (verified 432/432 against the Python engine), same 8 designs exported from `mawaqit/themes.py` by `tools/export_web.py`. Google Play publishing guide: [docs/google-play.md](docs/google-play.md). Privacy policy: [docs/privacy-policy.md](docs/privacy-policy.md).
@@ -68,6 +87,6 @@ build.cmd                              # Windows exe + installer (needs Inno Set
 ## Credits & licenses
 - Code: MIT.
 - Fonts: Amiri, Noto Kufi/Sans Arabic – SIL Open Font License 1.1.
-- Places: [GeoNames](https://www.geonames.org/) – CC BY 4.0.
+- Places: [GeoNames](https://www.geonames.org/) – CC BY 4.0. Mosques: © OpenStreetMap contributors – ODbL.
 - Morocco timetables: fetched at run time from habous.gov.ma (Ministry of Habous and Islamic Affairs).
 - Hijri Umm al-Qura: [hijridate](https://github.com/dralshehri/hijridate) (MIT). Astronomy: [PyEphem](https://rhodesmill.org/pyephem/) (MIT).

@@ -217,22 +217,26 @@ const FAST_V = {
   week: 'قال رسول الله ﷺ: «تُعرَضُ الأعمالُ يومَ الإثنينِ والخميسِ، فأُحبُّ أن يُعرَضَ عملي وأنا صائم» — رواه الترمذي',
 };
 const ORD = ['الأول', 'الثاني', 'الثالث'];
-function fastDays(row, date) {            // occasions of one day: {k, name, pre: announce it in advance}
+// occasions of one day: {k, title: «صيام …», today: the day itself, pre: announce it in advance}
+const ORD2 = ['أول', 'ثاني', 'ثالث'];
+function fastDays(row, date) {
   const out = []; if (!row) return out;
   const d = row.hday, m = row.mois, wd = date.getDay();
   if (m !== 9 && d >= 13 && d <= 15 && !(m === 12 && d === 13))       // 13 Dhu al-Hijja is a day of Tashriq: no fasting
-    out.push({ k: 'bid', name: m === 12 ? 'من الأيام البيض' : `${ORD[d - 13]} من الأيام البيض`, pre: d === (m === 12 ? 14 : 13) });
-  if (m === 1 && d === 1) out.push({ k: 'muharram', name: 'بداية شهر الله المحرّم', pre: true });
-  if (m === 1 && d === 9) out.push({ k: 'tasua', name: 'يوم تاسوعاء (التاسع من محرم)', pre: true });
-  if (m === 1 && d === 10) out.push({ k: 'ashura', name: 'يوم عاشوراء', pre: true });
-  if (m === 12 && d <= 8) out.push({ k: 'dhul', name: d === 1 ? 'أول العشر الأوائل من ذي الحجة' : 'من العشر الأوائل من ذي الحجة', pre: d === 1 });
-  if (m === 12 && d === 9) out.push({ k: 'arafa', name: 'يوم عرفة', pre: true });
-  if (m === 10 && d === 2) out.push({ k: 'shawwal', name: 'بداية صيام الست من شوال', pre: true });
-  if (cfg.tv_fast_week && m !== 9 && (wd === 1 || wd === 4) && !out.length) out.push({ k: 'week', name: 'يوم ' + (wd === 1 ? 'الإثنين' : 'الخميس'), pre: 'one' });
+    out.push({ k: 'bid', title: 'الأيام البيض', today: m === 12 ? 'من الأيام البيض' : `${ORD2[d - 13]} الأيام البيض`, pre: d === (m === 12 ? 14 : 13) });
+  if (m === 1 && d === 1) out.push({ k: 'muharram', title: 'شهر الله المحرّم', today: 'أول شهر الله المحرّم', pre: true });
+  if (m === 1 && d === 9) out.push({ k: 'tasua', title: 'يوم تاسوعاء', today: 'يوم تاسوعاء (التاسع من محرّم)', pre: true });
+  if (m === 1 && d === 10) out.push({ k: 'ashura', title: 'يوم عاشوراء', today: 'يوم عاشوراء (العاشر من محرّم)', pre: true });
+  if (m === 12 && d <= 8) out.push({ k: 'dhul', title: 'العشر من ذي الحجة', today: d === 1 ? 'أول العشر من ذي الحجة' : `اليوم ${dg(d)} من العشر من ذي الحجة`, pre: d === 1 });
+  if (m === 12 && d === 9) out.push({ k: 'arafa', title: 'يوم عرفة', today: 'يوم عرفة', pre: true });
+  if (m === 10 && d === 2) out.push({ k: 'shawwal', title: 'الست من شوال', today: 'بداية صيام الست من شوال', pre: true });
+  if (cfg.tv_fast_week && m !== 9 && (wd === 1 || wd === 4) && !out.length) {
+    const n = 'يوم ' + (wd === 1 ? 'الإثنين' : 'الخميس'); out.push({ k: 'week', title: n, today: n, pre: 'one' });
+  }
   return out;
 }
 let FASTC = { key: '', list: [] };
-function fastNews(now) {                   // [{head, name, virtue}]
+function fastNews(now) {                   // [{text, date, virtue}] — shown in the panel AND kept in the ticker while due
   if (cfg.tv_fast === false) return [];
   const key = isoLocal(now) + cfg.tv_fast_week + Object.keys(DAYS).length;
   if (FASTC.key === key) return FASTC.list;
@@ -242,24 +246,26 @@ function fastNews(now) {                   // [{head, name, virtue}]
     for (const o of fastDays(row, d)) {
       if (off && !o.pre) continue;
       if (off === 2 && o.pre === 'one') continue;
-      const wd = S.DAYS.ar[(d.getDay() + 6) % 7], hd = `${dg(row.hday)} ${S.HIJRI.ar[row.mois - 1]}`;
-      const head = off === 0 ? `اليوم ${wd} ${hd}` : off === 1 ? `غداً ${wd} ${hd}` : `بعد غدٍ ${wd} ${hd}`;
-      list.push({ head, name: o.name, virtue: FAST_V[o.k], k: o.k, off });
+      const date = `${S.DAYS.ar[(d.getDay() + 6) % 7]} ${dg(row.hday)} ${S.HIJRI.ar[row.mois - 1]}`;
+      const text = off === 0 ? `اليوم ${o.today}، يُستحبّ صيامه` : off === 1 ? `بقي يوم واحد على صيام ${o.title}` : `بقي يومان على صيام ${o.title}`;
+      list.push({ text, date, virtue: FAST_V[o.k], k: o.k, off });
     }
   }
   FASTC = { key, list };
   return list;
 }
-function newsAll(now) {                    // mosque announcements + automatic fasting reminders
-  const own = (cfg.tv_news || '').split('\n').map(s => s.trim()).filter(Boolean);
-  const fast = fastNews(now).map(f => `${f.head}: ${f.name}، يُستحبّ صيامه — ${f.virtue}`);
+// Quran-style ornaments (۞ ﴿ ﴾) drawn with the Uthmanic font: the screen fonts do not all have these glyphs
+const ORN = s => s.replace(/([۞﴾﴿])/g, '<span class="orn">$1</span>');
+function newsAll(now) {                    // mosque announcements + automatic fasting reminders (HTML)
+  const own = (cfg.tv_news || '').split('\n').map(s => s.trim()).filter(Boolean).map(esc);
+  const fast = fastNews(now).map(f => ORN(esc(`۞ ${f.text} (${f.date}) ﴿\u00a0${f.virtue}\u00a0﴾ ۞`)));
   return [...fast, ...own];
 }
 function slides(row) {
   const list = [];
   if (row) list.push(hizbHtml(row));
   for (const f of fastNews(NOW()))
-    list.push(`<h3>صيام التطوع</h3><div class="fit"><div class="fh">${esc(f.head)}</div><div class="big fn">${esc(f.name)}</div><div class="fh">يُستحبّ صيامه</div><div class="fv">${esc(f.virtue)}</div></div>`);
+    list.push(`<h3>صيام التطوع</h3><div class="fit"><div class="fh">${ORN('۞ ' + esc(f.date) + ' ۞')}</div><div class="big fn">${esc(f.text)}</div><div class="fv">${ORN('﴿\u00a0' + esc(f.virtue) + '\u00a0﴾')}</div></div>`);
   for (const ev of (row && row.events) || []) list.push(`<h3>مناسبة اليوم</h3><div class="fit"><div class="big">${esc(ev[0])}</div></div>`);
   for (const line of (cfg.tv_news || '').split('\n').map(s => s.trim()).filter(Boolean))
     list.push(`<h3>إعلان للمصلين</h3><div class="fit"><div class="big">${esc(line)}</div></div>`);
@@ -326,7 +332,7 @@ function ticker(news) {
   const box = $('tv-ticker');
   if (box._t === news) return;
   box._t = news;
-  box.innerHTML = `<span class="tk">${esc(news) || '&nbsp;'}</span>`;
+  box.innerHTML = `<span class="tk">${news || '&nbsp;'}</span>`;     // already escaped HTML
   const span = box.firstChild;
   requestAnimationFrame(() => {
     const w = span.offsetWidth, W = box.clientWidth, speed = Math.max(60, W / 14);     // px per second
@@ -934,6 +940,7 @@ body.setting #tv-settings{padding:2vh 1.5vw}
 .set .g2 label,.set .g3 label,.set .g6 label{margin:3px 0}
 .about{font-size:14px;line-height:1.9;color:#345}.about b{color:#0f5e4f}.about button{margin-top:6px;font-size:14px !important;padding:6px 14px !important}
 .fh{font-size:3.6rem;color:var(--cardmuted);font-weight:700}#tv-panel .big.fn{font-size:6.4rem;line-height:1.3;padding:.6vh 0}#tv-panel .fv{font-size:4rem;line-height:1.6;font-family:'Amiri',serif;margin-top:1.2vh;color:var(--cardfg)}
+body.tv .orn{font-family:'Amiri','QuranWarsh',serif !important;color:var(--accent);font-weight:400;margin:0 .25em}#tv-panel .orn{color:var(--line)}
 #tv-clockwarn{position:fixed;top:0;left:0;right:0;z-index:20;background:#b3261e;color:#fff;font:700 2.6vh 'Noto Kufi Arabic',sans-serif;padding:1.4vh 2vw;text-align:center}
 .set *{transition:none !important;animation:none !important}
 .set{max-width:1200px;margin:auto;background:#fff;color:#1d2b36;border-radius:18px;padding:22px 28px;font-family:'Noto Kufi Arabic',sans-serif;font-size:16px}
