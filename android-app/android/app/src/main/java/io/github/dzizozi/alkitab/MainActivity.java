@@ -11,6 +11,7 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(SheetPrinterPlugin.class);
         registerPlugin(ScreenPlugin.class);
+        registerPlugin(UpdaterPlugin.class);
         super.onCreate(savedInstanceState);
     }
 

@@ -2,6 +2,7 @@
 import { S } from './engine/shared.js';
 import * as model from './engine/model.js';
 import { renderHtml } from './engine/render.js';
+import * as U from './update.js';
 
 const $ = id => document.getElementById(id);
 const CAP = globalThis.Capacitor;
@@ -126,7 +127,7 @@ async function cancelReminders() {
 // ---------------------------------------------------------------- init
 async function init() {
   cfg = load(); document.body.dataset.theme = cfg.theme;
-  $('ver').textContent = 'كتابا موقوتا – الإصدار ' + S.version;
+  $('ver').innerHTML = U.aboutHtml(); U.wireAbout(false);
   await model.loadPlaces();
   cityRows = model.cities(cfg.country);
   $('country').innerHTML = model.countries().map(([cc, ar, fr, en]) => `<option value="${cc}">${ar}</option>`).join('');
@@ -190,5 +191,7 @@ async function boot() {
     AppP.exitApp();
   });
   await init();
+  U.firstRunNet(false);
+  U.startUpdateChecks(false);
 }
 boot().catch(e => { console.error(e); toast('خطأ: ' + e.message, 8000); });

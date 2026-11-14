@@ -5,6 +5,7 @@
 // Everything is drawn with CSS / SVG vectors (sharp on 1080p and 4K screens).
 import { S } from './engine/shared.js';
 import * as model from './engine/model.js';
+import * as U from './update.js';
 
 const $ = id => document.getElementById(id);
 const CAP = globalThis.Capacitor, P = (CAP && CAP.Plugins) || {};
@@ -13,7 +14,7 @@ const KEYS = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
 const PRAYERS = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
 
 export const TV_DEFAULTS = {
-  tv_theme: 'zellige', riwaya: 'warsh', digits: 'auto', tv_font: 'cairo', tv_scale: 100, tv_res: 'auto', method_auto: true, clock_mode: 'auto', clock_adj: 0,
+  tv_theme: 'zellige', riwaya: 'warsh', digits: 'auto', tv_font: 'cairo', tv_scale: 100, tv_res: 'auto', method_auto: true, clock_mode: 'auto', clock_adj: 0, tv_fast: true, tv_fast_week: false,
   iqama: { fajr: 20, dhuhr: 15, asr: 15, maghrib: 7, isha: 10 }, jumua_iqama: 30,
   prayer_min: 10, adhkar_min: 7, friday_before: 45,
   tv_news: 'يُرجى إغلاق الهاتف أو جعله على الصامت قبل الدخول في الصلاة\nسَوُّوا صُفُوفَكُمْ، فَإِنَّ تَسْوِيَةَ الصُّفُوفِ مِنْ إِقَامَةِ الصَّلَاةِ\nحافظوا على نظافة المسجد',
@@ -204,9 +205,61 @@ function hizbHtml(row) {
     <div class="q">${qt(h.words)} …</div><div class="hzr">من سورة ${h.sura_name} ${dg(h.aya)} إلى سورة ${h.end_sura_name} ${dg(h.end_aya)}</div></div>`;
   return `<h3>الحزب الراتب لليوم</h3><div class="fit hz2">${one(f, 'بعد صلاة الصبح')}${one(m, 'بعد صلاة المغرب')}</div>`;
 }
+// ---------------------------------------------------------------- voluntary fasting: 2 days before, 1 day before, and on the day
+const FAST_V = {
+  bid: 'قال رسول الله ﷺ: «صيامُ ثلاثةِ أيامٍ من كلِّ شهرٍ صيامُ الدهرِ كلِّه» — متفق عليه',
+  tasua: 'قال رسول الله ﷺ: «لئن بقيتُ إلى قابلٍ لأصومنَّ التاسعَ» — رواه مسلم',
+  ashura: 'قال رسول الله ﷺ: «صيامُ يومِ عاشوراءَ أحتسبُ على اللهِ أن يُكفِّرَ السنةَ التي قبلَه» — رواه مسلم',
+  muharram: 'قال رسول الله ﷺ: «أفضلُ الصيامِ بعد رمضانَ شهرُ اللهِ المحرَّمُ» — رواه مسلم',
+  dhul: 'قال رسول الله ﷺ: «ما من أيامٍ العملُ الصالحُ فيهنَّ أحبُّ إلى اللهِ من هذه الأيام» يعني العشر — رواه البخاري',
+  arafa: 'قال رسول الله ﷺ: «صيامُ يومِ عرفةَ أحتسبُ على اللهِ أن يُكفِّرَ السنةَ التي قبلَه والسنةَ التي بعدَه» — رواه مسلم',
+  shawwal: 'قال رسول الله ﷺ: «من صام رمضانَ ثم أتبعه ستًّا من شوالٍ كان كصيامِ الدهرِ» — رواه مسلم',
+  week: 'قال رسول الله ﷺ: «تُعرَضُ الأعمالُ يومَ الإثنينِ والخميسِ، فأُحبُّ أن يُعرَضَ عملي وأنا صائم» — رواه الترمذي',
+};
+const ORD = ['الأول', 'الثاني', 'الثالث'];
+function fastDays(row, date) {            // occasions of one day: {k, name, pre: announce it in advance}
+  const out = []; if (!row) return out;
+  const d = row.hday, m = row.mois, wd = date.getDay();
+  if (m !== 9 && d >= 13 && d <= 15 && !(m === 12 && d === 13))       // 13 Dhu al-Hijja is a day of Tashriq: no fasting
+    out.push({ k: 'bid', name: m === 12 ? 'من الأيام البيض' : `${ORD[d - 13]} من الأيام البيض`, pre: d === (m === 12 ? 14 : 13) });
+  if (m === 1 && d === 1) out.push({ k: 'muharram', name: 'بداية شهر الله المحرّم', pre: true });
+  if (m === 1 && d === 9) out.push({ k: 'tasua', name: 'يوم تاسوعاء (التاسع من محرم)', pre: true });
+  if (m === 1 && d === 10) out.push({ k: 'ashura', name: 'يوم عاشوراء', pre: true });
+  if (m === 12 && d <= 8) out.push({ k: 'dhul', name: d === 1 ? 'أول العشر الأوائل من ذي الحجة' : 'من العشر الأوائل من ذي الحجة', pre: d === 1 });
+  if (m === 12 && d === 9) out.push({ k: 'arafa', name: 'يوم عرفة', pre: true });
+  if (m === 10 && d === 2) out.push({ k: 'shawwal', name: 'بداية صيام الست من شوال', pre: true });
+  if (cfg.tv_fast_week && m !== 9 && (wd === 1 || wd === 4) && !out.length) out.push({ k: 'week', name: 'يوم ' + (wd === 1 ? 'الإثنين' : 'الخميس'), pre: 'one' });
+  return out;
+}
+let FASTC = { key: '', list: [] };
+function fastNews(now) {                   // [{head, name, virtue}]
+  if (cfg.tv_fast === false) return [];
+  const key = isoLocal(now) + cfg.tv_fast_week + Object.keys(DAYS).length;
+  if (FASTC.key === key) return FASTC.list;
+  const list = [];
+  for (const off of [0, 1, 2]) {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + off), row = DAYS[isoLocal(d)];
+    for (const o of fastDays(row, d)) {
+      if (off && !o.pre) continue;
+      if (off === 2 && o.pre === 'one') continue;
+      const wd = S.DAYS.ar[(d.getDay() + 6) % 7], hd = `${dg(row.hday)} ${S.HIJRI.ar[row.mois - 1]}`;
+      const head = off === 0 ? `اليوم ${wd} ${hd}` : off === 1 ? `غداً ${wd} ${hd}` : `بعد غدٍ ${wd} ${hd}`;
+      list.push({ head, name: o.name, virtue: FAST_V[o.k], k: o.k, off });
+    }
+  }
+  FASTC = { key, list };
+  return list;
+}
+function newsAll(now) {                    // mosque announcements + automatic fasting reminders
+  const own = (cfg.tv_news || '').split('\n').map(s => s.trim()).filter(Boolean);
+  const fast = fastNews(now).map(f => `${f.head}: ${f.name}، يُستحبّ صيامه — ${f.virtue}`);
+  return [...fast, ...own];
+}
 function slides(row) {
   const list = [];
   if (row) list.push(hizbHtml(row));
+  for (const f of fastNews(NOW()))
+    list.push(`<h3>صيام التطوع</h3><div class="fit"><div class="fh">${esc(f.head)}</div><div class="big fn">${esc(f.name)}</div><div class="fh">يُستحبّ صيامه</div><div class="fv">${esc(f.virtue)}</div></div>`);
   for (const ev of (row && row.events) || []) list.push(`<h3>مناسبة اليوم</h3><div class="fit"><div class="big">${esc(ev[0])}</div></div>`);
   for (const line of (cfg.tv_news || '').split('\n').map(s => s.trim()).filter(Boolean))
     list.push(`<h3>إعلان للمصلين</h3><div class="fit"><div class="big">${esc(line)}</div></div>`);
@@ -246,10 +299,11 @@ function fitBox(root) {
     const box = f.parentElement;
     f.style.transform = '';
     const cs = getComputedStyle(box), br = box.getBoundingClientRect(), fr = f.getBoundingClientRect();
-    const top = br.top + parseFloat(cs.paddingTop), bot = br.bottom - parseFloat(cs.paddingBottom);
-    const w = br.width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    const k = box.offsetWidth ? br.width / box.offsetWidth : 1;          // the mini preview in the settings is scaled down
+    const top = br.top + parseFloat(cs.paddingTop) * k, bot = br.bottom - parseFloat(cs.paddingBottom) * k;
+    const w = br.width / k - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
     const centred = getComputedStyle(f).transformOrigin && f.dataset.o !== 'top' && cs.justifyContent === 'center';
-    const availH = centred ? bot - top : bot - Math.max(top, fr.top);
+    const availH = (centred ? bot - top : bot - Math.max(top, fr.top)) / k;
     const s = Math.min(1, availH / f.scrollHeight, w / f.scrollWidth);
     if (s < 0.999) { f.style.transformOrigin = centred ? '50% 50%' : '50% 0'; f.style.transform = `scale(${s.toFixed(4)})`; }
   }
@@ -286,6 +340,12 @@ function render() {
     if (now >= p.adhan && now < p.iqama) { phase = 'iqama'; cur = p; break; }
     if (now >= p.iqama && now < endPrayer) { phase = 'prayer'; cur = p; break; }
     if (now >= endPrayer && now < addMin(endPrayer, +cfg.adhkar_min)) { phase = 'adhkar'; cur = p; break; }
+  }
+  if (PV) {                               // settings preview: show the chosen stage with sample times
+    const k = PV.k || 'dhuhr';
+    phase = PV.phase;
+    cur = phase === 'jumua' ? { k: 'jumua', adhan: addMin(now, +cfg.friday_before || 0), iqama: addMin(now, (+cfg.friday_before || 0) + (+cfg.jumua_iqama || 0)) }
+      : phase === 'iqama' ? { k, adhan: addMin(now, -1), iqama: addMin(now, (+(cfg.iqama[k] ?? 10) || 1) - 1) } : { k };
   }
   const next = sch.find(p => p.adhan > now);
   if (document.body.dataset.phase !== phase) document.body.dataset.phase = phase;
@@ -326,7 +386,7 @@ function render() {
   if (setHTML(ov, html) && html) fitBox(ov);
   if (phase !== 'adhkar') { adhkarI = 0; lastAdhkar = +now; }
 
-  ticker((cfg.tv_news || '').split('\n').map(s => s.trim()).filter(Boolean).join('     ✦     '));
+  ticker(newsAll(now).join('     ✦     '));
 }
 
 // ---------------------------------------------------------------- mosque search (Morocco, OpenStreetMap, offline ~125 KB)
@@ -345,7 +405,8 @@ async function mosques() {
 }
 
 // ---------------------------------------------------------------- settings (remote-control friendly, saved automatically)
-let RES = null;
+let RES = null, PV = null;      // PV: stage shown in the settings preview {phase, k}
+const NUMS = v => String(v ?? '').replace(/[٠-٩]/g, c => '٠١٢٣٤٥٦٧٨٩'.indexOf(c)).replace(/[۰-۹]/g, c => '۰۱۲۳۴۵۶۷۸۹'.indexOf(c)).trim();
 const NUM = (v, d = 0) => { const s = String(v ?? '').replace(/[٠-٩]/g, c => '٠١٢٣٤٥٦٧٨٩'.indexOf(c)).replace(/[۰-۹]/g, c => '۰۱۲۳۴۵۶۷۸۹'.indexOf(c)).replace(/[−–]/g, '-').trim();
   const n = parseInt(s, 10); return isNaN(n) ? d : n; };
 // number fields as text: the TV's Arabic locale would otherwise show them in Eastern digits
@@ -361,7 +422,7 @@ function srcInfo() {
 const ZONES = [['mos', 'اسم المسجد', 5.4, () => cfg.mosque_name || 'مواقيت الصلاة', '.tv-mos'], ['clock', 'الساعة', 13, () => '12:30', '#tv-clockbox'],
   ['date', 'التاريخ', 3.2, () => 'الجمعة 3 جمادى الثانية', '#tv-date'], ['next', 'الصلاة القادمة والعدّاد', 9, () => 'العصر 08:52', '#tv-next'],
   ['panel', 'الإعلانات والأحزاب', 8, () => (cfg.tv_news || '').split('\n')[0] || 'إعلان', '#tv-panel'], ['cards', 'بطاقات المواقيت', 7, () => 'الظهر 12:20', '#tv-prayers'],
-  ['ticker', 'الشريط المتحرك', 3.6, () => (cfg.tv_news || '').split('\n')[0] || 'إعلان', '#tv-ticker'], ['iqama', 'عدّاد الإقامة', 30, () => '04:43', '.ovc,.ovl,.ovt,.ovn'],
+  ['ticker', 'الشريط المتحرك', 3.6, () => (cfg.tv_news || '').split('\n')[0] || 'إعلان', '#tv-ticker'], ['iqama', 'شاشة الإقامة والصلاة', 30, () => '04:43', '.ovc,.ovl,.ovt,.ovn'],
   ['adhkar', 'الأذكار', 6.4, () => 'أَسْتَغْفِرُ اللهَ', '.adk h2,.adk p,.adk .src'], ['hadith', 'حديث الجمعة', 7, () => 'مَنْ لَغَا فَلَا جُمُعَةَ لَهُ', '.hadith p']];
 const zOf = k => Math.max(50, Math.min(250, ((cfg.tv_z || {})[k]) || 100)) / 100;
 const zFont = k => ((cfg.tv_zf || {})[k]) || '';
@@ -379,7 +440,7 @@ function zoneCss() {
     #tv-clock{font-size:${r('clock', 13)}}#tv-sec{font-size:${r('clock', 4.6)}}#tv-date{font-size:${r('date', 3.2)}}
     #tv-next .fit>*{zoom:${z('next')}}#tv-panel .fit>*,#tv-panel h3{zoom:${z('panel')}}
     .pc .pn{font-size:${r('cards', 3.8)}}.pc .pt{font-size:${r('cards', 7)}}.pc .pi{font-size:${r('cards', 2.6)}}
-    #tv-ticker{height:calc(6.4vh * ${z('ticker')})}#tv-ticker .tk{font-size:${r('ticker', 3.6)}}.ovc{font-size:${r('iqama', 30)}}
+    #tv-ticker{height:calc(6.4vh * ${z('ticker')})}#tv-ticker .tk{font-size:${r('ticker', 3.6)}}#tv-over>.ovc,#tv-over>.ovl,#tv-over>.ovt,#tv-over>.ovn{zoom:${z('iqama')}}
     .adk .fit>*,.adk h2{zoom:${z('adhkar')}}.hadith .fit>*{zoom:${z('hadith')}}`;
 }
 const lines = s => String(s || '').split('\n').map(x => x.trim()).filter(Boolean);
@@ -407,47 +468,57 @@ function settingsHtml() {
   const me = S.METHOD_ORDER.map(k => `<option value="${k}">${S.METHODS[k].ar}</option>`).join('');
   const ak = ADK_KEYS.map(([k, n]) => `<option value="${k}">${n}</option>`).join('');
   const zc = ZONES.map(([k, n]) => `<button class="chip" data-zone="${k}">${n}</button>`).join('');
-  return `<div class="set"><h2>إعدادات شاشة المسجد <small>تُحفظ كل خانة تلقائياً عند الخروج منها</small></h2>
+  const pv = (p, k = '') => ` data-pv="${p}"${k ? ` data-pvk="${k}"` : ''}`;
+  return `<div class="set"><h2>إعدادات شاشة المسجد <small>تُحفظ كل خانة تلقائياً · الأسهم الأربعة للتنقل · المعاينة تظهر بجانبك عند خانات المظهر</small></h2>
    <h3>المسجد والمدينة</h3>
-   <label>اسم المسجد (اكتب أوله للبحث في قائمة المساجد)<input type="text" id="s-mosque" value="${esc(cfg.mosque_name)}"></label><div id="s-mosques" class="cl"></div>
-   <label>البلد<select id="s-country"></select></label>
+   <div class="g2"><label>اسم المسجد (اكتب أوله للبحث)<input type="text" id="s-mosque" value="${esc(cfg.mosque_name)}"></label>
+    <label>البلد<select id="s-country"></select></label></div>
+   <div id="s-mosques" class="cl"></div>
    <label>المدينة (اكتب أول الاسم ثم اختر من القائمة)<input type="text" id="s-city" value="${esc(cfg.city_ar)}"></label><div id="s-cities" class="cl"></div>
    <small id="s-src">${srcInfo()}</small>
    <h3>طريقة حساب المواقيت</h3>
    <label class="chk"><input type="checkbox" id="s-mauto"${cfg.method_auto !== false ? ' checked' : ''}><span>تلقائي حسب بلد المسجد (في المغرب: مواقيت وزارة الأوقاف)</span></label>
-   <label>الطريقة (عند إلغاء التلقائي)<select id="s-method">${me}</select></label>
-   <label>صلاة العصر<select id="s-asr"><option value="1">الجمهور (مالكي، شافعي، حنبلي)</option><option value="2">الحنفي</option></select></label>
-   <label>تعديل يدوي بالدقائق لمطابقة مسجدكم (مثال: 2 أو -3)</label><div class="g6">${tn}</div>
-   <h3>الإقامة (بالدقائق بعد الأذان)</h3><div class="g6">${iq}<label>الجمعة${numIn('s-jiq', cfg.jumua_iqama)}</label></div>
-   <div class="g3"><label>مدة الصلاة${numIn('s-pmin', cfg.prayer_min)}</label><label>مدة عرض الأذكار${numIn('s-amin', cfg.adhkar_min)}</label>
-    <label>حديث الجمعة قبل الأذان بـ${numIn('s-fri', cfg.friday_before)}</label></div>
+   <div class="g2"><label>الطريقة<select id="s-method">${me}</select></label>
+    <label>صلاة العصر<select id="s-asr"><option value="1">الجمهور</option><option value="2">الحنفي</option></select></label></div>
+   <label>تعديل يدوي للأذان بالدقائق (مثال: 2 أو -3)</label><div class="g6">${tn}</div>
+   <h3>الإقامة ومراحل الشاشة <small>(بالدقائق)</small></h3>
+   <div class="g6"${pv('iqama')}>${PRAYERS.map(k => `<label${pv('iqama', k)}>${NAMES[k]}${numIn('iq-' + k, cfg.iqama[k], ` data-iq="${k}"`)}</label>`).join('')}<label${pv('jumua')}>الجمعة${numIn('s-jiq', cfg.jumua_iqama)}</label></div>
+   <div class="g3"><label${pv('prayer')}>مدة الصلاة${numIn('s-pmin', cfg.prayer_min)}</label><label${pv('adhkar')}>مدة الأذكار بعدها${numIn('s-amin', cfg.adhkar_min)}</label>
+    <label${pv('jumua')}>الحديث قبل أذان الجمعة${numIn('s-fri', cfg.friday_before)}</label></div>
    <h3>المظهر</h3>
-   <label>التصميم<select id="s-theme">${th}</select></label>
-   <label>الخط العام للشاشة<select id="s-font">${fo}</select></label>
-   <label>شكل الأرقام على الشاشة<select id="s-digits"><option value="auto">تلقائي حسب البلد</option><option value="western">0123</option><option value="eastern">٠١٢٣</option></select></label>
-   <label>الرواية (الأحزاب والآيات)<select id="s-riwaya"><option value="warsh">ورش عن نافع</option><option value="hafs">حفص عن عاصم</option></select></label>
-   <label>دقة الشاشة<select id="s-res"><option value="auto">تلقائي (أعلى دقة يدعمها الجهاز)</option><option value="2160">4K – 3840×2160</option><option value="1080">Full HD – 1920×1080</option></select></label><small id="s-resinfo"></small>
+   <div class="g2"${pv('normal')}><label>التصميم<select id="s-theme">${th}</select></label>
+    <label>الخط العام للشاشة<select id="s-font">${fo}</select></label>
+    <label>شكل الأرقام<select id="s-digits"><option value="auto">تلقائي حسب البلد</option><option value="western">0123</option><option value="eastern">٠١٢٣</option></select></label>
+    <label>الرواية (الأحزاب والآيات)<select id="s-riwaya"><option value="warsh">ورش عن نافع</option><option value="hafs">حفص عن عاصم</option></select></label></div>
    <h3>الخط وحجمه لكل جزء من الشاشة</h3>
-   <div class="chips">${zc}</div>
-   <label>نوع خط الجزء المختار<select id="z-font"><option value="">مثل الخط العام للشاشة</option>${fo}</select></label>
-   <div class="zrow"><button id="z-minus">−</button><b id="z-val">100%</b><button id="z-plus">+</button><button id="z-reset">100%</button>
-    <div class="zprev" id="z-prev"></div></div>
-   <small>اختر الجزء أولاً، ثم نوع خطه، ثم غيّر حجمه بـ − و +. المثال بجانبها بالحجم الحقيقي. النصوص الطويلة تُصغَّر تلقائياً لتبقى داخل إطارها.</small>
-   <h3>الساعة</h3>
-   <label>مصدر الساعة<select id="s-clock"><option value="auto">تلقائي: من الإنترنت حسب التوقيت الرسمي للبلد</option><option value="device">ساعة جهاز التلفاز</option><option value="manual">يدوي: ساعة الجهاز مع تصحيح</option></select></label>
-   <div class="zrow" id="clk-man"><button id="ck-h-">− ساعة</button><button id="ck-m-">− دقيقة</button><b id="ck-now"></b><button id="ck-m+">+ دقيقة</button><button id="ck-h+">+ ساعة</button></div>
-   <small id="ck-info"></small>
-   <h3>الإعلانات للمصلين <small>(تظهر في اللوحة وفي الشريط المتحرك)</small></h3>
-   <div id="s-news">${listRows('news', lines(cfg.tv_news), 'نص الإعلان')}</div><button class="add" id="add-news">+ إضافة إعلان</button>
+   <div class="chips"${pv('zone')}>${zc}</div>
+   <div class="g2"${pv('zone')}><label>نوع خط الجزء المختار<select id="z-font"><option value="">مثل الخط العام</option>${fo}</select></label>
+    <div><label>حجمه</label><div class="zrow"><button id="z-minus">−</button><b id="z-val">100%</b><button id="z-plus">+</button><button id="z-reset">100%</button></div></div></div>
+   <h3>الإعلانات للمصلين <small>(اللوحة والشريط المتحرك)</small></h3>
+   <div id="s-news"${pv('normal')}>${listRows('news', lines(cfg.tv_news), 'نص الإعلان')}</div><button class="add" id="add-news"${pv('normal')}>+ إضافة إعلان</button>
+   <label class="chk"${pv('normal')}><input type="checkbox" id="s-fast"${cfg.tv_fast !== false ? ' checked' : ''}><span>إعلانات صيام التطوع تلقائياً: الأيام البيض، عاشوراء وتاسوعاء، عرفة والعشر، الست من شوال، أول محرم — قبلها بيومين وبيوم وفي يومها، مع ذكر فضلها</span></label>
+   <label class="chk"${pv('normal')}><input type="checkbox" id="s-fastw"${cfg.tv_fast_week ? ' checked' : ''}><span>التذكير أيضاً بصيام الإثنين والخميس (في اليوم السابق وفي يومه)</span></label>
    <h3>حديث الجمعة</h3>
-   <div id="s-hadith">${listRows('hadith', lines(cfg.tv_hadith), 'سطر من الحديث')}</div><button class="add" id="add-hadith">+ إضافة سطر</button>
+   <div id="s-hadith"${pv('jumua')}>${listRows('hadith', lines(cfg.tv_hadith), 'سطر من الحديث')}</div><button class="add" id="add-hadith"${pv('jumua')}>+ إضافة سطر</button>
    <h3>الأذكار بعد الصلاة</h3>
-   <label>أذكار صلاة<select id="s-adk-p">${ak}</select></label>
+   <div${pv('adhkar')}><label>أذكار صلاة<select id="s-adk-p">${ak}</select></label>
    <div id="s-adk"></div>
-   <div class="row"><button class="add" id="add-adk">+ إضافة ذكر</button><button id="s-adk-reset">استعادة الأذكار الأصلية</button></div>
-   <small>اكتب [آية الكرسي] أو [المعوذات] في خانة النص لعرضها بالرسم العثماني، و(33) يظهر عدداً. إذا كانت صلاة بلا أذكار تُعرض أذكار «كل الصلوات».</small>
+   <div class="row"><button class="add" id="add-adk">+ إضافة ذكر</button><button id="s-adk-reset">استعادة الأذكار الأصلية</button></div></div>
+   <small>اكتب [آية الكرسي] أو [المعوذات] في خانة النص لعرضها بالرسم العثماني، و(33) يظهر عدداً.</small>
+   <h3>الساعة والتاريخ</h3>
+   <div class="g2"><label>مصدر الساعة<select id="s-clock"><option value="auto">تلقائي: من الإنترنت</option><option value="device">ساعة جهاز التلفاز</option><option value="manual">يدوي: أُدخل التاريخ والوقت</option></select></label>
+    <div><label>&nbsp;</label><button id="ck-sys">إعدادات التاريخ والوقت في الجهاز</button></div></div>
+   <div id="clk-man"><div class="g3"><label>التاريخ (سنة-شهر-يوم)<input type="text" inputmode="numeric" dir="ltr" class="num" id="ck-date"></label>
+     <label>الوقت (ساعة:دقيقة)<input type="text" inputmode="numeric" dir="ltr" class="num" id="ck-time"></label>
+     <div><label>&nbsp;</label><button id="ck-set" class="b1">ضبط الساعة</button></div></div>
+    <div class="zrow"><button id="ck-h-">− ساعة</button><button id="ck-m-">− دقيقة</button><b id="ck-now" dir="ltr"></b><button id="ck-m+">+ دقيقة</button><button id="ck-h+">+ ساعة</button></div></div>
+   <small id="ck-info"></small>
+   <small>دون إنترنت تُعتمد مواقيت الأوقاف المحفوظة داخل التطبيق (آخر مزامنة عند إصداره)، ثم الحساب الفلكي المعايَر على مواقيت الأوقاف.</small>
+   <h3>الشاشة</h3>
+   <label>دقة الشاشة<select id="s-res"><option value="auto">تلقائي (أعلى دقة يدعمها الجهاز)</option><option value="2160">4K – 3840×2160</option><option value="1080">Full HD – 1920×1080</option></select></label><small id="s-resinfo"></small>
    <div class="row"><button id="s-cancel" class="b1">إغلاق</button><button id="s-phone">التحويل إلى وضع الهاتف</button></div>
-   <p class="hint">الأسهم ▲▼ للتنقل بين الخانات بالترتيب، وOK للكتابة أو الاختيار. بعد الكتابة اضغط ▼ أو OK للانتقال (يُحفظ تلقائياً).
+   <h3>حول التطبيق</h3>${U.aboutHtml()}
+   <p class="hint">الأسهم ▲▼◀▶ للانتقال إلى الخانة في ذلك الاتجاه، وOK للكتابة أو الاختيار. بعد الكتابة: زر الرجوع يغلق لوحة المفاتيح.
     الضغط المطوّل على زر الرجوع يعيدك إلى اختيار الوضع (هاتف / مسجد). قائمة المساجد من OpenStreetMap (© المساهمون، ODbL).</p></div>`;
 }
 let cityRows = [], pendingCity = null, ZSEL = 'panel', ADK = null, adkKey = 'all';
@@ -460,8 +531,27 @@ function zoneUI() {
   $('z-val').textContent = v + '%';
   const px = innerHeight / 100 * z[2] * zOf(ZSEL);       // the real size on the screen
   $('z-font').value = zFont(ZSEL);
-  $('z-prev').style.fontFamily = zFont(ZSEL) ? `'F-${zFont(ZSEL)}'` : `'F-${cfg.tv_font}'`;
-  $('z-prev').innerHTML = `<span style="font-size:${Math.min(px, 150).toFixed(0)}px">${esc(z[3]())}</span>${px > 150 ? `<em>حجمه الحقيقي ${Math.round(px)}px</em>` : ''}`;
+  if (PV) showPV(zonePV());
+}
+// ---- live mini screen beside the settings (the real display, scaled down)
+const zonePV = () => ({ iqama: { phase: 'iqama' }, adhkar: { phase: 'adhkar', k: adkK() }, hadith: { phase: 'jumua' } }[ZSEL] || { phase: 'normal' });
+const adkK = () => (adkKey === 'all' ? 'dhuhr' : adkKey);
+function refreshPV() {
+  for (const id of ['tv-ticker', 'tv-panel', 'tv-nexthead', 'tv-over', 'tv-prayers', 'tv-date']) { const e = $(id); if (e) { e._h = null; e._t = null; } }
+  render();
+}
+function showPV(p) {
+  const same = PV && p && PV.phase === p.phase && PV.k === p.k;
+  PV = p; document.body.classList.toggle('pv', !!p);
+  if (p && !same) { adhkarI = 0; lastAdhkar = 0; }
+  if (p) refreshPV(); else document.body.dataset.phase = 'normal';
+}
+function pvFor(el) {
+  const w = el && el.closest && el.closest('[data-pv]'); if (!w) return null;
+  const p = w.dataset.pv;
+  if (p === 'zone') return zonePV();
+  if (p === 'adhkar') return { phase: 'adhkar', k: adkK() };
+  return { phase: p, k: w.dataset.pvk || (p === 'iqama' ? 'dhuhr' : '') };
 }
 let applyT = null;
 function commit(full) {             // read every field, save, and refresh the screen behind the settings
@@ -483,8 +573,11 @@ function commit(full) {             // read every field, save, and refresh the s
     jumua_iqama: NUM($('s-jiq').value), prayer_min: NUM($('s-pmin').value, 10) || 10, adhkar_min: NUM($('s-amin').value),
     friday_before: NUM($('s-fri').value),
     tv_news: [...document.querySelectorAll('[data-list=news]')].map(i => i.value.trim()).filter(Boolean).join('\n'),
-    tv_hadith: [...document.querySelectorAll('[data-list=hadith]')].map(i => i.value.trim()).filter(Boolean).join('\n') });
+    tv_hadith: [...document.querySelectorAll('[data-list=hadith]')].map(i => i.value.trim()).filter(Boolean).join('\n'),
+    tv_fast: $('s-fast').checked, tv_fast_week: $('s-fastw').checked });
+  FASTC.key = '';
   save(); applyTheme();
+  if (PV) refreshPV();
   $('s-src').innerHTML = srcInfo();
   if (resChanged) applyRes();
   dirty = true;                      // the screen behind is hidden while the settings are open: refresh it on close
@@ -493,11 +586,10 @@ let dirty = false;
 function clockUI() {
   if (!$('ck-now')) { clearInterval(clockUI.t); return; }
   const n = NOW(), m = cfg.clock_mode || 'auto';
-  $('ck-now').textContent = [n.getHours(), n.getMinutes(), n.getSeconds()].map(pad).join(':');
+  $('ck-now').textContent = isoLocal(n) + '  ' + [n.getHours(), n.getMinutes(), n.getSeconds()].map(pad).join(':');
   $('clk-man').style.opacity = m === 'manual' ? 1 : .55;
-  const adj = +cfg.clock_adj || 0;
   $('ck-info').textContent = m === 'auto' ? (SKEW != null ? 'الوقت مأخوذ من الإنترنت ✓' : 'لا إنترنت الآن: تُستعمل ساعة الجهاز مع التوقيت الرسمي للبلد')
-    : m === 'manual' ? `ساعة الجهاز ${adj >= 0 ? '+' : '−'} ${Math.floor(Math.abs(adj) / 60)} ساعة و${Math.abs(adj) % 60} دقيقة` : 'ساعة جهاز التلفاز كما هي';
+    : m === 'manual' ? 'وقت يدوي: يبقى صحيحاً ما دام الجهاز موصولاً بالكهرباء. بعد انقطاعها يطلب التطبيق التحقق منه.' : 'ساعة جهاز التلفاز كما هي';
 }
 async function openSettings() {
   const box = $('tv-settings'); box.innerHTML = settingsHtml(); box.classList.add('on');
@@ -518,7 +610,7 @@ async function openSettings() {
   // auto save: every field when it is left / changed
   box.addEventListener('change', e => {
     const el = e.target;
-    if (el.id === 's-adk-p') { ADK[adkKey] = adkText($('s-adk')); adkKey = el.value; adkLoad(); return; }
+    if (el.id === 's-adk-p') { ADK[adkKey] = adkText($('s-adk')); adkKey = el.value; adkLoad(); if (PV) showPV({ phase: 'adhkar', k: adkK() }); return; }
     if (el.id === 's-country') { cityRows = model.cities(el.value); $('s-city').value = ''; mAuto(); }
     if (el.id === 's-mauto') mAuto();
     if (el.id === 's-mosque' || el.id === 's-city') return;            // handled by their suggestion lists / commit below
@@ -569,17 +661,32 @@ async function openSettings() {
     row.remove(); commit(); go(nxt ? nxt.querySelector('input') : $(d.dataset.akdel !== undefined ? 'add-adk' : 'add-' + d.dataset.del.split(':')[0]));
   });
   // text sizes per part
-  box.querySelectorAll('.chip').forEach(c => c.onclick = () => { ZSEL = c.dataset.zone; zoneUI(); });
-  const zSet = v => { cfg.tv_z = { ...(cfg.tv_z || {}), [ZSEL]: Math.max(50, Math.min(250, v)) }; save(); applyTheme(); zoneUI(); dirty = true; };
+  box.querySelectorAll('.chip').forEach(c => c.onclick = () => { ZSEL = c.dataset.zone; zoneUI(); showPV(zonePV()); });
+  const zSet = v => { cfg.tv_z = { ...(cfg.tv_z || {}), [ZSEL]: Math.max(50, Math.min(250, v)) }; save(); applyTheme(); zoneUI(); refreshPV(); dirty = true; };
   $('z-minus').onclick = () => zSet(Math.round(zOf(ZSEL) * 100) - 10);
   $('z-plus').onclick = () => zSet(Math.round(zOf(ZSEL) * 100) + 10);
   $('z-reset').onclick = () => zSet(100);
-  $('z-font').onchange = e => { e.stopPropagation(); cfg.tv_zf = { ...(cfg.tv_zf || {}), [ZSEL]: $('z-font').value }; save(); applyTheme(); zoneUI(); dirty = true; };
+  $('z-font').onchange = e => { e.stopPropagation(); cfg.tv_zf = { ...(cfg.tv_zf || {}), [ZSEL]: $('z-font').value }; save(); applyTheme(); zoneUI(); refreshPV(); dirty = true; };
   zoneUI();
   // clock
   $('s-clock').value = cfg.clock_mode || 'auto';
-  const ck = d => { cfg.clock_mode = 'manual'; $('s-clock').value = 'manual'; cfg.clock_adj = (+cfg.clock_adj || 0) + d; save(); clockUI(); dirty = true; };
+  const ck = d => { cfg.clock_mode = 'manual'; $('s-clock').value = 'manual'; cfg.clock_adj = (+cfg.clock_adj || 0) + d; save(); clockMark(); clockUI(); ckFill(); dirty = true; };
   $('ck-h-').onclick = () => ck(-60); $('ck-h+').onclick = () => ck(60); $('ck-m-').onclick = () => ck(-1); $('ck-m+').onclick = () => ck(1);
+  const ckFill = () => { const n = NOW(); $('ck-date').value = isoLocal(n); $('ck-time').value = pad(n.getHours()) + ':' + pad(n.getMinutes()); };
+  ckFill();
+  $('ck-set').onclick = () => {
+    const d = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(NUMS($('ck-date').value)), h = /^(\d{1,2})[:.](\d{2})$/.exec(NUMS($('ck-time').value));
+    if (!d || !h) { $('ck-info').textContent = '⚠️ اكتب التاريخ هكذا 2026-11-14 والوقت هكذا 18:45'; return; }
+    const want = new Date(+d[1], d[2] - 1, +d[3], +h[1], +h[2], 0);
+    if (isNaN(want)) return;
+    cfg.clock_mode = 'manual'; $('s-clock').value = 'manual';
+    cfg.clock_adj = (want - (Date.now() + OFF)) / 60000; save(); clockMark(); clockUI(); dirty = true;
+    $('ck-info').textContent = '✓ ضُبطت الساعة: ' + isoLocal(want) + ' ' + pad(+h[1]) + ':' + h[2];
+  };
+  $('ck-sys').onclick = () => U.openSystem('date').catch(() => { $('ck-info').textContent = 'لا تتوفر شاشة إعدادات التاريخ على هذا الجهاز: استعمل الضبط اليدوي هنا.'; });
+  U.wireAbout(true);
+  // live preview beside the settings: only for the fields that change the screen
+  box.addEventListener('focusin', e => { const p = pvFor(e.target); if (JSON.stringify(p) !== JSON.stringify(PV)) showPV(p); });
   clockUI(); clearInterval(clockUI.t); clockUI.t = setInterval(clockUI, 1000);
   $('s-cancel').onclick = () => { commit(); closeSettings(); };
   $('s-phone').onclick = () => { commit(); localStorage.setItem('mode', 'phone'); location.reload(); };
@@ -595,6 +702,7 @@ function lockTexts() {
 }
 function go(el) { if (!el) return; el.focus({ preventScroll: true }); el.scrollIntoView({ block: 'nearest' }); }
 function closeSettings() {
+  showPV(null);
   $('tv-settings').classList.remove('on'); $('tv-settings').innerHTML = ''; document.body.classList.remove('setting');
   clearInterval(clockUI.t);
   if (dirty) { dirty = false; (async () => { lastBuild = ''; await build(); $('tv-ticker')._t = null; $('tv-panel')._h = null; $('tv-nexthead')._h = null; render(); })(); }
@@ -603,7 +711,15 @@ function focusables() { return [...$('tv-settings').querySelectorAll('input,sele
 let lastNav = 0;
 function onKey(e) {
   if (localStorage.getItem('kmperf')) { const t0 = performance.now(); requestAnimationFrame(() => requestAnimationFrame(() => { const a = document.activeElement; console.log('KMPERF ' + e.key + (e.repeat ? '(rep)' : '') + ' ' + Math.round(performance.now() - t0) + 'ms -> ' + (a.id || a.dataset.zone || a.dataset.list || a.dataset.ak || a.tagName) + ' ro=' + a.readOnly); })); }
+  if (U.netVisible()) { U.netKey(e); return; }                         // «connect to the internet» notice
   const open = $('tv-settings').classList.contains('on');
+  if (!open && U.updateVisible()) {                                    // new version banner: OK = install, Back = hide
+    if (e.key === 'Enter') { e.preventDefault(); U.install(); return; }
+    if (e.key === 'Escape' || e.key === 'GoBack' || e.key === 'BrowserBack') { e.preventDefault(); U.hideUpdate(); return; }
+  }
+  if (!open && $('tv-clockwarn')) {
+    if (e.key === 'Enter') { e.preventDefault(); $('tv-clockwarn').remove(); openSettings().then(() => go($('ck-date'))); return; }
+  }
   if (!open) {
     if (['Enter', 'ContextMenu', 'MediaPlayPause', ' '].includes(e.key) || e.keyCode === 82 || e.keyCode === 23) { e.preventDefault(); openSettings(); }
     return;
@@ -625,7 +741,7 @@ function onKey(e) {
     return;
   }
   if (e.key === 'Escape' || e.key === 'GoBack' || e.key === 'BrowserBack') { e.preventDefault(); commit(); closeSettings(); return; }
-  const dir = { ArrowDown: 1, ArrowUp: -1, ArrowLeft: 1, ArrowRight: -1 }[e.key];      // RTL: ◀ = next
+  const dir = { ArrowDown: 1, ArrowUp: -1, ArrowLeft: 1, ArrowRight: -1 }[e.key];
   if (!dir) return;
   // one press = one step: ignore auto-repeat bursts and doubled events from some remotes
   const tNow = performance.now();
@@ -634,10 +750,27 @@ function onKey(e) {
   if (typing && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) return;        // move the cursor inside the text
   e.preventDefault();
   if (typing) { el.readOnly = true; el.dispatchEvent(new Event('change', { bubbles: true })); }
-  // simple and predictable: the next / previous field in reading order
-  const i = f.indexOf(el);
-  const nx = f[i < 0 ? 0 : Math.max(0, Math.min(f.length - 1, i + dir))];
-  go(nx);
+  go(spatial(f, el, e.key) || (f.indexOf(el) < 0 ? f[0] : null));
+}
+// the field the arrow points to: ▼ = the nearest row below (the field under / closest to this one), ◀ ▶ = next field on the same row
+function spatial(f, el, key) {
+  if (!el || f.indexOf(el) < 0) return null;
+  const r = el.getBoundingClientRect(), cx = (r.left + r.right) / 2;
+  const R = f.filter(x => x !== el).map(x => ({ x, b: x.getBoundingClientRect() })).filter(o => o.b.width || o.b.height);
+  const vOverlap = b => Math.min(b.bottom, r.bottom) - Math.max(b.top, r.top) > Math.min(b.height, r.height) * 0.4;
+  if (key === 'ArrowDown' || key === 'ArrowUp') {
+    const down = key === 'ArrowDown';
+    const c = R.filter(o => down ? o.b.top >= r.bottom - 3 && !vOverlap(o.b) : o.b.bottom <= r.top + 3 && !vOverlap(o.b));
+    if (!c.length) return null;
+    const edge = down ? Math.min(...c.map(o => o.b.top)) : Math.max(...c.map(o => o.b.bottom));
+    const row = c.filter(o => down ? o.b.top - edge < Math.max(8, o.b.height * 0.5) : edge - o.b.bottom < Math.max(8, o.b.height * 0.5));
+    const dist = o => o.b.right < r.left ? r.left - o.b.right : o.b.left > r.right ? o.b.left - r.right : Math.abs((o.b.left + o.b.right) / 2 - cx) / 1000;
+    return row.sort((a, b) => dist(a) - dist(b))[0].x;
+  }
+  const left = key === 'ArrowLeft';
+  const c = R.filter(o => vOverlap(o.b) && (left ? o.b.right <= r.left + 3 : o.b.left >= r.right - 3));
+  if (!c.length) return null;
+  return c.sort((a, b) => (left ? r.left - a.b.right : a.b.left - r.right) - (left ? r.left - b.b.right : b.b.left - r.right))[0].x;
 }
 
 // ---------------------------------------------------------------- display resolution (Android TV: 1080p / 4K output mode)
@@ -722,7 +855,17 @@ body[data-phase=prayer] .ovt{color:#9a8a5a}
 .hadith p{font-family:'Amiri',serif;font-size:7rem;line-height:1.7;margin:1.6vh 0}
 #tv-settings{position:fixed;inset:0;display:none;background:rgba(0,0,0,.6);z-index:5;overflow:auto;padding:3vh 4vw;cursor:default}
 #tv-settings.on{display:block}
-body.setting #tv,body.setting #tv-over{display:none !important}body.setting #tv-settings{background:#dfe7ea}
+body.setting:not(.pv) #tv,body.setting:not(.pv) #tv-over{display:none !important}body.setting #tv-settings{background:#dfe7ea}
+body.setting.pv #tv,body.setting.pv #tv-over{position:fixed;inset:auto;left:1.6vw;top:24vh;width:100vw;height:100vh;transform:scale(.41);transform-origin:0 0;
+  z-index:6;border-radius:3vh;overflow:hidden;box-shadow:0 0 0 .8vh #fff,0 2vh 6vh rgba(0,0,0,.45);pointer-events:none}
+body.setting.pv[data-phase=normal] #tv-over{display:none}body.setting.pv:not([data-phase=normal]) #tv-over{z-index:7}
+body.setting.pv #tv-settings::after{content:'معاينة مباشرة';position:fixed;left:1.6vw;top:calc(24vh - 34px);width:41vw;text-align:center;font:700 15px 'Noto Kufi Arabic',sans-serif;color:#0f5e4f}
+body.setting #tv-settings{padding:2vh 1.5vw}
+#tv-settings .set{margin:0;margin-inline-start:0;width:54vw;max-width:none}
+.set .g2 label,.set .g3 label,.set .g6 label{margin:3px 0}
+.about{font-size:14px;line-height:1.9;color:#345}.about b{color:#0f5e4f}.about button{margin-top:6px;font-size:14px !important;padding:6px 14px !important}
+.fh{font-size:3.6rem;color:var(--cardmuted);font-weight:700}#tv-panel .big.fn{font-size:6.4rem;line-height:1.3;padding:.6vh 0}#tv-panel .fv{font-size:4rem;line-height:1.6;font-family:'Amiri',serif;margin-top:1.2vh;color:var(--cardfg)}
+#tv-clockwarn{position:fixed;top:0;left:0;right:0;z-index:20;background:#b3261e;color:#fff;font:700 2.6vh 'Noto Kufi Arabic',sans-serif;padding:1.4vh 2vw;text-align:center}
 .set *{transition:none !important;animation:none !important}
 .set{max-width:1200px;margin:auto;background:#fff;color:#1d2b36;border-radius:18px;padding:22px 28px;font-family:'Noto Kufi Arabic',sans-serif;font-size:16px}
 .set h2{margin:0 0 10px;color:#0f5e4f}.set h3{margin:14px 0 6px;font-size:15px;color:#0f5e4f}.set label{display:block;font-size:13px;color:#456;margin:6px 0}
@@ -784,9 +927,26 @@ export async function start() {
   // remote «Back»: closes the settings; on the display itself it does nothing (the screen must stay on)
   try { if (P.App) P.App.addListener('backButton', () => { if ($('tv-settings').classList.contains('on')) closeSettings(); }); } catch (e) { }
   // tick on the second boundary
-  const tick = () => { try { if (!document.body.classList.contains('setting')) render(); } catch (e) { console.error(e); } setTimeout(tick, 1005 - (Date.now() % 1000)); };
+  const tick = () => { try { if (!document.body.classList.contains('setting') || PV) render(); } catch (e) { console.error(e); } setTimeout(tick, 1005 - (Date.now() % 1000)); };
   setTimeout(tick, 1005 - (Date.now() % 1000));
   setInterval(() => build().catch(console.error), 10 * 60000);      // new day / new month
-  syncClock(); setInterval(syncClock, 6 * 3600000);
+  const sync = () => syncClock().then(ok => { if (ok) { clockMark(); $('tv-clockwarn') && $('tv-clockwarn').remove(); } else clockCheck(); });
+  sync(); setInterval(sync, 6 * 3600000);
+  setInterval(clockMark, 60000);
+  try { if (P.App) P.App.addListener('backButton', () => { if (U.updateVisible()) U.hideUpdate(); }); } catch (e) { }
+  U.firstRunNet(true);
+  U.startUpdateChecks(true);
+}
+// ---------------------------------------------------------------- TV boxes without a clock battery lose the time when unplugged
+function clockMark() { if (!AT) localStorage.setItem('km_clock', JSON.stringify({ t: +NOW(), dev: Date.now() })); }
+function clockCheck() {
+  if (AT || cfg.clock_mode === 'device') return clockMark();
+  let m = null; try { m = JSON.parse(localStorage.getItem('km_clock') || 'null'); } catch (e) { }
+  const now = +NOW();
+  const wrong = new Date(now).getFullYear() < 2026 || (m && now < m.t - 5 * 60000);   // time went backwards: the box lost its clock
+  if (!wrong) return clockMark();
+  const d = document.createElement('div'); d.id = 'tv-clockwarn';
+  d.textContent = '⏰ يبدو أن الجهاز فقد التاريخ والوقت بعد انقطاع الكهرباء. اضغط OK لضبطهما (أو صِل الجهاز بالإنترنت ليُضبطا تلقائياً).';
+  document.body.appendChild(d);
 }
 export { THEMES };

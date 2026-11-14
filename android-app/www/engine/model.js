@@ -82,7 +82,10 @@ async function fetchHabous(name, maxAgeH) {
       return t;
     }
   } catch (e) { /* offline or CORS (browser preview) */ }
-  return cached ? cached.v : null;
+  if (cached) return cached.v;
+  // no internet and nothing cached yet: the official files shipped inside the app (latest synced when it was built)
+  try { const r = await fetch('data/habous/' + name); if (r.ok) { const t = await r.text(); if (t.includes('push(') || t.includes('HIJRI')) return t; } } catch (e) { }
+  return null;
 }
 const habCache = {};
 let HAB_FUSEAU = null;                 // time zone of the official Habous times, e.g. "GMT" or "GMT+1"
