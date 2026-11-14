@@ -13,7 +13,7 @@ const KEYS = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
 const PRAYERS = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
 
 export const TV_DEFAULTS = {
-  tv_theme: 'zellige', riwaya: 'warsh', digits: 'auto', tv_font: 'cairo', tv_scale: 100, tv_res: 'auto', method_auto: true,
+  tv_theme: 'zellige', riwaya: 'warsh', digits: 'auto', tv_font: 'cairo', tv_scale: 100, tv_res: 'auto', method_auto: true, clock_mode: 'auto', clock_adj: 0,
   iqama: { fajr: 20, dhuhr: 15, asr: 15, maghrib: 7, isha: 10 }, jumua_iqama: 30,
   prayer_min: 10, adhkar_min: 7, friday_before: 45,
   tv_news: 'يُرجى إغلاق الهاتف أو جعله على الصامت قبل الدخول في الصلاة\nسَوُّوا صُفُوفَكُمْ، فَإِنَّ تَسْوِيَةَ الصُّفُوفِ مِنْ إِقَامَةِ الصَّلَاةِ\nحافظوا على نظافة المسجد',
@@ -89,7 +89,44 @@ let cfg, Q = null, AHZAB = null, MOSQ = null, DAYS = {}, slideI = -1, lastSlide 
 // test hook: index.html?at=2026-11-13T12:10 shows the screen as at that moment (clock keeps running)
 const AT = new URLSearchParams(location.search).get('at');
 const OFF = AT ? new Date(AT) - Date.now() : 0;
-const NOW = () => new Date(Date.now() + OFF);
+// clock source: 'auto' = exact time from the internet + the official time of the mosque's country,
+// 'device' = the TV box's own clock, 'manual' = the TV box's clock corrected by N minutes
+let SKEW = null;                        // internet UTC − device UTC (ms)
+function zoneOffsetMin(tz, ms) {        // UTC offset of a time zone at a moment (minutes)
+  try {
+    const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+      .formatToParts(new Date(ms)).map(x => [x.type, x.value]));
+    return Math.round((Date.UTC(+p.year, p.month - 1, +p.day, +p.hour % 24, +p.minute) - Math.floor(ms / 60000) * 60000) / 60000);
+  } catch (e) { return null; }
+}
+function officialOffset(ms) {
+  if (cfg.country === 'MA') { const h = model.habousUtcOffset(); return (h ?? 0) + (cfg.morocco_plus1 ? 60 : 0); }  // Habous times are published in GMT
+  return zoneOffsetMin(cfg.tz || 'UTC', ms);
+}
+const NOW = () => {
+  const base = Date.now() + OFF;
+  if (!cfg || AT) return new Date(base);
+  if (cfg.clock_mode === 'manual') return new Date(base + (+cfg.clock_adj || 0) * 60000);
+  if (cfg.clock_mode === 'device') return new Date(base);
+  const off = officialOffset(base);
+  if (off == null) return new Date(base);
+  const wall = base + (SKEW || 0) + off * 60000;            // wall-clock time of the mosque, as if it were UTC
+  const d = new Date(wall); return new Date(wall + d.getTimezoneOffset() * 60000);   // … shown with the device's local getters
+};
+async function syncClock() {            // exact UTC from the «Date» header of a web server (no extra service)
+  const http = globalThis.Capacitor?.isNativePlatform?.() && globalThis.Capacitor.Plugins?.CapacitorHttp;
+  for (const url of ['https://www.google.com/generate_204', 'https://www.habous.gov.ma/']) {
+    try {
+      const t0 = Date.now();
+      let date = null;
+      if (http) { const r = await http.request({ url, method: 'HEAD', connectTimeout: 8000, readTimeout: 8000 });
+        const h = r.headers || {}; date = h.Date || h.date; }
+      else { const r = await fetch(url, { method: 'HEAD', cache: 'no-store' }); date = r.headers.get('date'); }
+      if (date) { const t = Date.parse(date); if (!isNaN(t)) { SKEW = t + 500 - (t0 + Date.now()) / 2; return true; } }
+    } catch (e) { }
+  }
+  return false;
+}
 const pad = n => String(n).padStart(2, '0');
 const isoLocal = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
 const EAST = new Set(['SA', 'AE', 'KW', 'QA', 'BH', 'OM', 'YE', 'IQ', 'SY', 'JO', 'LB', 'PS', 'EG', 'SD']);
@@ -320,16 +357,25 @@ function srcInfo() {
   }
   const m = S.METHODS[cfg.method]; return `المصدر: حساب فلكي – ${m ? m.ar : cfg.method} – ${esc(cfg.city_ar || cfg.city_name)}`;
 }
-// parts of the screen whose text size can be changed one by one: id, label, base size (rem), sample text
-const ZONES = [['mos', 'اسم المسجد', 5.4, () => cfg.mosque_name || 'مواقيت الصلاة'], ['clock', 'الساعة', 13, () => '12:30'],
-  ['date', 'التاريخ', 3.2, () => 'الجمعة 3 جمادى الثانية'], ['next', 'الصلاة القادمة والعدّاد', 9, () => 'العصر 08:52'],
-  ['panel', 'الإعلانات والأحزاب', 8, () => (cfg.tv_news || '').split('\n')[0] || 'إعلان'], ['cards', 'بطاقات المواقيت', 7, () => 'الظهر 12:20'],
-  ['ticker', 'الشريط المتحرك', 3.6, () => (cfg.tv_news || '').split('\n')[0] || 'إعلان'], ['iqama', 'عدّاد الإقامة', 30, () => '04:43'],
-  ['adhkar', 'الأذكار', 6.4, () => 'أَسْتَغْفِرُ اللهَ'], ['hadith', 'حديث الجمعة', 7, () => 'مَنْ لَغَا فَلَا جُمُعَةَ لَهُ']];
+// parts of the screen whose font and text size can be changed one by one: id, label, base size (rem), sample, CSS selector
+const ZONES = [['mos', 'اسم المسجد', 5.4, () => cfg.mosque_name || 'مواقيت الصلاة', '.tv-mos'], ['clock', 'الساعة', 13, () => '12:30', '#tv-clockbox'],
+  ['date', 'التاريخ', 3.2, () => 'الجمعة 3 جمادى الثانية', '#tv-date'], ['next', 'الصلاة القادمة والعدّاد', 9, () => 'العصر 08:52', '#tv-next'],
+  ['panel', 'الإعلانات والأحزاب', 8, () => (cfg.tv_news || '').split('\n')[0] || 'إعلان', '#tv-panel'], ['cards', 'بطاقات المواقيت', 7, () => 'الظهر 12:20', '#tv-prayers'],
+  ['ticker', 'الشريط المتحرك', 3.6, () => (cfg.tv_news || '').split('\n')[0] || 'إعلان', '#tv-ticker'], ['iqama', 'عدّاد الإقامة', 30, () => '04:43', '.ovc,.ovl,.ovt,.ovn'],
+  ['adhkar', 'الأذكار', 6.4, () => 'أَسْتَغْفِرُ اللهَ', '.adk h2,.adk p,.adk .src'], ['hadith', 'حديث الجمعة', 7, () => 'مَنْ لَغَا فَلَا جُمُعَةَ لَهُ', '.hadith p']];
 const zOf = k => Math.max(50, Math.min(250, ((cfg.tv_z || {})[k]) || 100)) / 100;
+const zFont = k => ((cfg.tv_zf || {})[k]) || '';
 function zoneCss() {
   const z = k => zOf(k).toFixed(3), r = (k, rem) => `calc(${rem}rem * ${z(k)})`;
-  return `.tv-mos{font-size:${r('mos', 5.4)}}.tv-mos small{font-size:${r('mos', 2.6)}}
+  let fonts = '';
+  for (const [k, , , , sel] of ZONES) {
+    const f = zFont(k), fi = f && S.FONTS.find(x => x[0] === f);
+    if (!fi) continue;
+    fonts += `@font-face{font-family:'Z-${f}';src:url('fonts/${fi[3]}');font-weight:100 500}@font-face{font-family:'Z-${f}';src:url('fonts/${fi[4]}');font-weight:600 900}`;
+    fonts += sel.split(',').map(s => `${s},${s} *`).join(',') + `{font-family:'Z-${f}','TVF',sans-serif !important}`;
+  }
+  if (fonts) fonts += `body.tv .q{font-family:'QuranWarsh','Amiri',serif !important}body.tv[data-riwaya=hafs] .q{font-family:'QuranHafs','Amiri',serif !important}`;
+  return fonts + `.tv-mos{font-size:${r('mos', 5.4)}}.tv-mos small{font-size:${r('mos', 2.6)}}
     #tv-clock{font-size:${r('clock', 13)}}#tv-sec{font-size:${r('clock', 4.6)}}#tv-date{font-size:${r('date', 3.2)}}
     #tv-next .fit>*{zoom:${z('next')}}#tv-panel .fit>*,#tv-panel h3{zoom:${z('panel')}}
     .pc .pn{font-size:${r('cards', 3.8)}}.pc .pt{font-size:${r('cards', 7)}}.pc .pi{font-size:${r('cards', 2.6)}}
@@ -377,16 +423,20 @@ function settingsHtml() {
     <label>حديث الجمعة قبل الأذان بـ${numIn('s-fri', cfg.friday_before)}</label></div>
    <h3>المظهر</h3>
    <label>التصميم<select id="s-theme">${th}</select></label>
-   <label>نوع الخط<select id="s-font">${fo}</select></label>
-   <label>الحجم العام لكل الخطوط (%)${numIn('s-scale', cfg.tv_scale)}</label>
+   <label>الخط العام للشاشة<select id="s-font">${fo}</select></label>
    <label>شكل الأرقام على الشاشة<select id="s-digits"><option value="auto">تلقائي حسب البلد</option><option value="western">0123</option><option value="eastern">٠١٢٣</option></select></label>
    <label>الرواية (الأحزاب والآيات)<select id="s-riwaya"><option value="warsh">ورش عن نافع</option><option value="hafs">حفص عن عاصم</option></select></label>
    <label>دقة الشاشة<select id="s-res"><option value="auto">تلقائي (أعلى دقة يدعمها الجهاز)</option><option value="2160">4K – 3840×2160</option><option value="1080">Full HD – 1920×1080</option></select></label><small id="s-resinfo"></small>
-   <h3>حجم الخط لكل جزء من الشاشة</h3>
+   <h3>الخط وحجمه لكل جزء من الشاشة</h3>
    <div class="chips">${zc}</div>
+   <label>نوع خط الجزء المختار<select id="z-font"><option value="">مثل الخط العام للشاشة</option>${fo}</select></label>
    <div class="zrow"><button id="z-minus">−</button><b id="z-val">100%</b><button id="z-plus">+</button><button id="z-reset">100%</button>
     <div class="zprev" id="z-prev"></div></div>
-   <small>اختر الجزء ثم غيّر حجمه بـ − و +. النصوص الطويلة تُصغَّر تلقائياً لتبقى داخل إطارها.</small>
+   <small>اختر الجزء أولاً، ثم نوع خطه، ثم غيّر حجمه بـ − و +. المثال بجانبها بالحجم الحقيقي. النصوص الطويلة تُصغَّر تلقائياً لتبقى داخل إطارها.</small>
+   <h3>الساعة</h3>
+   <label>مصدر الساعة<select id="s-clock"><option value="auto">تلقائي: من الإنترنت حسب التوقيت الرسمي للبلد</option><option value="device">ساعة جهاز التلفاز</option><option value="manual">يدوي: ساعة الجهاز مع تصحيح</option></select></label>
+   <div class="zrow" id="clk-man"><button id="ck-h-">− ساعة</button><button id="ck-m-">− دقيقة</button><b id="ck-now"></b><button id="ck-m+">+ دقيقة</button><button id="ck-h+">+ ساعة</button></div>
+   <small id="ck-info"></small>
    <h3>الإعلانات للمصلين <small>(تظهر في اللوحة وفي الشريط المتحرك)</small></h3>
    <div id="s-news">${listRows('news', lines(cfg.tv_news), 'نص الإعلان')}</div><button class="add" id="add-news">+ إضافة إعلان</button>
    <h3>حديث الجمعة</h3>
@@ -408,7 +458,9 @@ function zoneUI() {
   document.querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c.dataset.zone === ZSEL));
   const z = ZONES.find(x => x[0] === ZSEL), v = Math.round(zOf(ZSEL) * 100);
   $('z-val').textContent = v + '%';
-  const px = innerHeight / 100 * (cfg.tv_scale || 100) / 100 * z[2] * zOf(ZSEL);       // the real size on the screen
+  const px = innerHeight / 100 * z[2] * zOf(ZSEL);       // the real size on the screen
+  $('z-font').value = zFont(ZSEL);
+  $('z-prev').style.fontFamily = zFont(ZSEL) ? `'F-${zFont(ZSEL)}'` : `'F-${cfg.tv_font}'`;
   $('z-prev').innerHTML = `<span style="font-size:${Math.min(px, 150).toFixed(0)}px">${esc(z[3]())}</span>${px > 150 ? `<em>حجمه الحقيقي ${Math.round(px)}px</em>` : ''}`;
 }
 let applyT = null;
@@ -427,7 +479,7 @@ function commit(full) {             // read every field, save, and refresh the s
   ADK[adkKey] = adkText($('s-adk')); cfg.tv_adhkar = { ...ADK };
   const res = $('s-res').value, resChanged = res !== (cfg.tv_res || 'auto');
   Object.assign(cfg, { mosque_name: $('s-mosque').value.trim(), tv_theme: $('s-theme').value, riwaya: $('s-riwaya').value, digits: $('s-digits').value,
-    tv_font: $('s-font').value, tv_scale: Math.max(60, Math.min(200, NUM($('s-scale').value, 100))), tv_res: res,
+    tv_font: $('s-font').value, tv_res: res, clock_mode: $('s-clock').value,
     jumua_iqama: NUM($('s-jiq').value), prayer_min: NUM($('s-pmin').value, 10) || 10, adhkar_min: NUM($('s-amin').value),
     friday_before: NUM($('s-fri').value),
     tv_news: [...document.querySelectorAll('[data-list=news]')].map(i => i.value.trim()).filter(Boolean).join('\n'),
@@ -435,11 +487,21 @@ function commit(full) {             // read every field, save, and refresh the s
   save(); applyTheme();
   $('s-src').innerHTML = srcInfo();
   if (resChanged) applyRes();
-  clearTimeout(applyT);
-  applyT = setTimeout(async () => { lastBuild = ''; await build(); $('tv-ticker')._t = null; $('tv-panel')._h = null; $('tv-next').querySelector('#tv-nexthead')._h = null; render(); }, 150);
+  dirty = true;                      // the screen behind is hidden while the settings are open: refresh it on close
+}
+let dirty = false;
+function clockUI() {
+  if (!$('ck-now')) { clearInterval(clockUI.t); return; }
+  const n = NOW(), m = cfg.clock_mode || 'auto';
+  $('ck-now').textContent = [n.getHours(), n.getMinutes(), n.getSeconds()].map(pad).join(':');
+  $('clk-man').style.opacity = m === 'manual' ? 1 : .55;
+  const adj = +cfg.clock_adj || 0;
+  $('ck-info').textContent = m === 'auto' ? (SKEW != null ? 'الوقت مأخوذ من الإنترنت ✓' : 'لا إنترنت الآن: تُستعمل ساعة الجهاز مع التوقيت الرسمي للبلد')
+    : m === 'manual' ? `ساعة الجهاز ${adj >= 0 ? '+' : '−'} ${Math.floor(Math.abs(adj) / 60)} ساعة و${Math.abs(adj) % 60} دقيقة` : 'ساعة جهاز التلفاز كما هي';
 }
 async function openSettings() {
   const box = $('tv-settings'); box.innerHTML = settingsHtml(); box.classList.add('on');
+  document.body.classList.add('setting');          // hide the live screen: much lighter for the TV box while navigating
   $('s-country').innerHTML = model.countries().map(([cc, ar]) => `<option value="${cc}">${ar}</option>`).join('');
   $('s-country').value = cfg.country; $('s-theme').value = cfg.tv_theme; $('s-riwaya').value = cfg.riwaya || 'warsh';
   $('s-digits').value = cfg.digits || 'auto'; $('s-font').value = cfg.tv_font; $('s-res').value = cfg.tv_res || 'auto';
@@ -461,7 +523,8 @@ async function openSettings() {
     if (el.id === 's-mauto') mAuto();
     if (el.id === 's-mosque' || el.id === 's-city') return;            // handled by their suggestion lists / commit below
     commit();
-    if (el.id === 's-scale') zoneUI();
+    if (el.id === 's-font') zoneUI();
+    if (el.id === 's-clock') clockUI();
   });
   box.addEventListener('focusout', e => {
     if (e.target.id === 's-mosque') commit();
@@ -473,6 +536,7 @@ async function openSettings() {
     const hits = q ? cityRows.filter(c => AR_NORM(c[1]).includes(q) || AR_NORM(c[2]).includes(q))
       .sort((a, b) => (AR_NORM(a[1]).startsWith(q) || AR_NORM(a[2]).startsWith(q) ? 0 : 1) - (AR_NORM(b[1]).startsWith(q) || AR_NORM(b[2]).startsWith(q) ? 0 : 1)).slice(0, 8) : [];
     suggest($('s-cities'), hits.map(c => [c[0], `<b>${esc(c[1])}</b>${c[2] && c[2] !== c[1] ? ' — ' + esc(c[2]) : ''}`]));
+    if (q && !hits.length) $('s-cities').innerHTML = '<small class="none">لا توجد مدينة بهذا الاسم. جرّب أول حرفين أو ثلاثة فقط، بالعربية أو بالفرنسية.</small>';
   };
   $('s-cities').onclick = e => { const b = e.target.closest('[data-k]'); if (!b) return;
     pendingCity = { cc: $('s-country').value, k: b.dataset.k }; const c = cityRows.find(x => x[0] === b.dataset.k);
@@ -506,12 +570,17 @@ async function openSettings() {
   });
   // text sizes per part
   box.querySelectorAll('.chip').forEach(c => c.onclick = () => { ZSEL = c.dataset.zone; zoneUI(); });
-  const zSet = v => { cfg.tv_z = { ...(cfg.tv_z || {}), [ZSEL]: Math.max(50, Math.min(250, v)) }; save(); applyTheme(); zoneUI();
-    $('tv-ticker')._t = null; $('tv-panel')._h = null; $('tv-nexthead')._h = null; render(); };
+  const zSet = v => { cfg.tv_z = { ...(cfg.tv_z || {}), [ZSEL]: Math.max(50, Math.min(250, v)) }; save(); applyTheme(); zoneUI(); dirty = true; };
   $('z-minus').onclick = () => zSet(Math.round(zOf(ZSEL) * 100) - 10);
   $('z-plus').onclick = () => zSet(Math.round(zOf(ZSEL) * 100) + 10);
   $('z-reset').onclick = () => zSet(100);
+  $('z-font').onchange = e => { e.stopPropagation(); cfg.tv_zf = { ...(cfg.tv_zf || {}), [ZSEL]: $('z-font').value }; save(); applyTheme(); zoneUI(); dirty = true; };
   zoneUI();
+  // clock
+  $('s-clock').value = cfg.clock_mode || 'auto';
+  const ck = d => { cfg.clock_mode = 'manual'; $('s-clock').value = 'manual'; cfg.clock_adj = (+cfg.clock_adj || 0) + d; save(); clockUI(); dirty = true; };
+  $('ck-h-').onclick = () => ck(-60); $('ck-h+').onclick = () => ck(60); $('ck-m-').onclick = () => ck(-1); $('ck-m+').onclick = () => ck(1);
+  clockUI(); clearInterval(clockUI.t); clockUI.t = setInterval(clockUI, 1000);
   $('s-cancel').onclick = () => { commit(); closeSettings(); };
   $('s-phone').onclick = () => { commit(); localStorage.setItem('mode', 'phone'); location.reload(); };
   lockTexts();
@@ -524,10 +593,16 @@ function lockTexts() {
     el.addEventListener('blur', () => { el.readOnly = true; });
   });
 }
-function go(el) { if (!el) return; el.focus({ preventScroll: true }); el.scrollIntoView({ block: 'center' }); }
-function closeSettings() { $('tv-settings').classList.remove('on'); $('tv-settings').innerHTML = ''; }
+function go(el) { if (!el) return; el.focus({ preventScroll: true }); el.scrollIntoView({ block: 'nearest' }); }
+function closeSettings() {
+  $('tv-settings').classList.remove('on'); $('tv-settings').innerHTML = ''; document.body.classList.remove('setting');
+  clearInterval(clockUI.t);
+  if (dirty) { dirty = false; (async () => { lastBuild = ''; await build(); $('tv-ticker')._t = null; $('tv-panel')._h = null; $('tv-nexthead')._h = null; render(); })(); }
+}
 function focusables() { return [...$('tv-settings').querySelectorAll('input,select,textarea,button')].filter(e => e.offsetParent && !e.disabled); }
+let lastNav = 0;
 function onKey(e) {
+  if (localStorage.getItem('kmperf')) { const t0 = performance.now(); requestAnimationFrame(() => requestAnimationFrame(() => { const a = document.activeElement; console.log('KMPERF ' + e.key + (e.repeat ? '(rep)' : '') + ' ' + Math.round(performance.now() - t0) + 'ms -> ' + (a.id || a.dataset.zone || a.dataset.list || a.dataset.ak || a.tagName) + ' ro=' + a.readOnly); })); }
   const open = $('tv-settings').classList.contains('on');
   if (!open) {
     if (['Enter', 'ContextMenu', 'MediaPlayPause', ' '].includes(e.key) || e.keyCode === 82 || e.keyCode === 23) { e.preventDefault(); openSettings(); }
@@ -552,6 +627,10 @@ function onKey(e) {
   if (e.key === 'Escape' || e.key === 'GoBack' || e.key === 'BrowserBack') { e.preventDefault(); commit(); closeSettings(); return; }
   const dir = { ArrowDown: 1, ArrowUp: -1, ArrowLeft: 1, ArrowRight: -1 }[e.key];      // RTL: ◀ = next
   if (!dir) return;
+  // one press = one step: ignore auto-repeat bursts and doubled events from some remotes
+  const tNow = performance.now();
+  if ((e.repeat && tNow - lastNav < 260) || tNow - lastNav < 110) { e.preventDefault(); return; }
+  lastNav = tNow;
   if (typing && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) return;        // move the cursor inside the text
   e.preventDefault();
   if (typing) { el.readOnly = true; el.dispatchEvent(new Event('change', { bubbles: true })); }
@@ -643,6 +722,8 @@ body[data-phase=prayer] .ovt{color:#9a8a5a}
 .hadith p{font-family:'Amiri',serif;font-size:7rem;line-height:1.7;margin:1.6vh 0}
 #tv-settings{position:fixed;inset:0;display:none;background:rgba(0,0,0,.6);z-index:5;overflow:auto;padding:3vh 4vw;cursor:default}
 #tv-settings.on{display:block}
+body.setting #tv,body.setting #tv-over{display:none !important}body.setting #tv-settings{background:#dfe7ea}
+.set *{transition:none !important;animation:none !important}
 .set{max-width:1200px;margin:auto;background:#fff;color:#1d2b36;border-radius:18px;padding:22px 28px;font-family:'Noto Kufi Arabic',sans-serif;font-size:16px}
 .set h2{margin:0 0 10px;color:#0f5e4f}.set h3{margin:14px 0 6px;font-size:15px;color:#0f5e4f}.set label{display:block;font-size:13px;color:#456;margin:6px 0}
 .set small{display:block;color:#789;font-size:12px;margin-top:3px}
@@ -674,7 +755,7 @@ function applyTheme() {
   const f = fontInfo(cfg.tv_font);
   const faces = `@font-face{font-family:'TVF';src:url('fonts/${f[3]}');font-weight:100 500}@font-face{font-family:'TVF';src:url('fonts/${f[4]}');font-weight:600 900}`;
   const band = t[1].includes('--band:none') ? '0px' : '5vh';
-  $('tv-theme').textContent = faces + `body.tv{${t[1]};--bandh:${band};--sc:${(cfg.tv_scale || 100) / 100}}` + zoneCss();
+  $('tv-theme').textContent = faces + `body.tv{${t[1]};--bandh:${band};--sc:1}` + zoneCss();
   document.body.dataset.riwaya = cfg.riwaya === 'hafs' ? 'hafs' : 'warsh';
   $('tv-mos').innerHTML = `${esc(cfg.mosque_name || 'مواقيت الصلاة')}<small>${esc(cfg.city_ar)}${cfg.city_name && cfg.city_name !== cfg.city_ar ? ' · ' + esc(cfg.city_name) : ''}</small>`;
 }
@@ -703,8 +784,9 @@ export async function start() {
   // remote «Back»: closes the settings; on the display itself it does nothing (the screen must stay on)
   try { if (P.App) P.App.addListener('backButton', () => { if ($('tv-settings').classList.contains('on')) closeSettings(); }); } catch (e) { }
   // tick on the second boundary
-  const tick = () => { try { render(); } catch (e) { console.error(e); } setTimeout(tick, 1005 - (Date.now() % 1000)); };
+  const tick = () => { try { if (!document.body.classList.contains('setting')) render(); } catch (e) { console.error(e); } setTimeout(tick, 1005 - (Date.now() % 1000)); };
   setTimeout(tick, 1005 - (Date.now() % 1000));
   setInterval(() => build().catch(console.error), 10 * 60000);      // new day / new month
+  syncClock(); setInterval(syncClock, 6 * 3600000);
 }
 export { THEMES };

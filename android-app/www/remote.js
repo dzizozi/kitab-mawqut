@@ -2,7 +2,7 @@
 // Arrows move the focus to the nearest control in that direction; when there is none, the page scrolls.
 // Text fields open the on-screen keyboard only after OK (Enter), so the arrows never get trapped.
 const TEXT = el => el && ((el.tagName === 'INPUT' && !['checkbox', 'radio', 'button', 'submit', 'range', 'color', 'file'].includes(el.type)) || el.tagName === 'TEXTAREA');
-let remote = false;
+let remote = false, lastNav = 0;
 
 function visible(el) {
   if (el.disabled || el.closest('.hide,[hidden]')) return false;
@@ -34,14 +34,19 @@ function go(el) {
   el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 }
 
+const isTV = () => localStorage.getItem('mode') === 'tv' || document.body.classList.contains('tv');
 export function enableRemote() {
   document.addEventListener('keydown', e => {
+    if (isTV()) return;     // the mosque display has its own navigation (otherwise every press moves the focus twice)
     const dir = { ArrowDown: [0, 1], ArrowUp: [0, -1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] }[e.key];
     const el = document.activeElement && document.activeElement !== document.body ? document.activeElement : null;
     if (e.key === 'Enter' && el && TEXT(el) && el.readOnly && el.dataset.kmro) {      // OK on a text field: start typing
       e.preventDefault(); el.readOnly = false; el.blur(); el.focus(); el.click(); return;
     }
     if (!dir) return;
+    const tNow = performance.now();                    // one press = one step (no repeat bursts)
+    if ((e.repeat && tNow - lastNav < 260) || tNow - lastNav < 110) { e.preventDefault(); return; }
+    lastNav = tNow;
     remote = true;
     const typing = el && TEXT(el) && !el.readOnly;
     if (typing && (el.tagName === 'TEXTAREA' || dir[0])) return;          // let the cursor move inside the text
@@ -70,7 +75,7 @@ export function enableRemote() {
     else if (dir[1]) { const sc = scroller(el); sc.scrollTop += dir[1] * Math.round(innerHeight * 0.45); }
   }, true);
   document.addEventListener('focusout', e => {           // keep touch typing normal
-    const el = e.target; if (TEXT(el) && el.dataset.kmro) { el.readOnly = false; delete el.dataset.kmro; }
+    const el = e.target; if (isTV()) return; if (TEXT(el) && el.dataset.kmro) { el.readOnly = false; delete el.dataset.kmro; }
   });
   const st = document.createElement('style');
   st.textContent = ':focus-visible,select:focus,button:focus{outline:3px solid #e0a100 !important;outline-offset:2px}';

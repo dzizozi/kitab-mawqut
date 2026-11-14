@@ -108,6 +108,19 @@ def main():
     sub, w2 = text_path('مواقيت الصلاة · شاشة المسجد', 'Cairo-VF.ttf', 17, 120, 122)
     body += path(title, '#FFFFFFFF') + path(sub, GOLD)
     open(os.path.join(RES, 'drawable', 'tv_banner.xml'), 'w', encoding='utf-8').write(vector(320, 180, 320, 180, body))
+    # ---- start-up (splash) screen: vector logo centred on a solid colour, sharp at any resolution
+    logo = path(crescent(150, 70, 44), GOLD) + path(star(186, 38, 12), GOLD)
+    t1, _ = text_path('كتابا موقوتا', 'Amiri-Bold.ttf', 46, 150, 172)
+    t2, _ = text_path('مواقيت الصلاة', 'Cairo-VF.ttf', 18, 150, 204)
+    logo += path(t1, '#FFFFFFFF') + path(t2, GOLD)
+    open(os.path.join(RES, 'drawable', 'splash_logo.xml'), 'w', encoding='utf-8').write(vector(300, 220, 300, 220, logo))
+    open(os.path.join(RES, 'drawable', 'splash.xml'), 'w', encoding='utf-8').write(
+        '<?xml version="1.0" encoding="utf-8"?>\n<layer-list xmlns:android="http://schemas.android.com/apk/res/android">\n'
+        '    <item><color android:color="#FF0B3D2E"/></item>\n'
+        '    <item android:gravity="center" android:width="300dp" android:height="220dp" android:drawable="@drawable/splash_logo"/>\n</layer-list>\n')
+    for d in os.listdir(RES):
+        f = os.path.join(RES, d, 'splash.png')
+        if d.startswith('drawable') and os.path.exists(f): os.remove(f)
     png = os.path.join(RES, 'drawable', 'tv_banner.png')
     if os.path.exists(png): os.remove(png)
     print('icons written; title width %.0f, subtitle width %.0f' % (w1, w2))

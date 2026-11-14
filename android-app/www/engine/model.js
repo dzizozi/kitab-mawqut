@@ -85,6 +85,11 @@ async function fetchHabous(name, maxAgeH) {
   return cached ? cached.v : null;
 }
 const habCache = {};
+let HAB_FUSEAU = null;                 // time zone of the official Habous times, e.g. "GMT" or "GMT+1"
+export function habousUtcOffset() {    // minutes, or null if not known yet
+  if (!HAB_FUSEAU) return null;
+  const m = /GMT\s*([+-]\d+)?/i.exec(HAB_FUSEAU); return m ? (m[1] ? +m[1] * 60 : 0) : null;
+}
 async function habousMonth(y, m) {
   const k = y + '-' + m;
   if (!(k in habCache)) {
@@ -93,6 +98,7 @@ async function habousMonth(y, m) {
     habCache[k] = null;
     if (t && t.includes('push(')) {
       const d = JSON.parse(t.slice(t.indexOf('push(') + 5, t.lastIndexOf(')')));
+      if (d.fuseau) HAB_FUSEAU = d.fuseau;
       habCache[k] = Object.fromEntries(d.villes.map(v => [v.c, v.h]));
     }
   }

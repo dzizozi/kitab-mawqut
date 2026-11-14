@@ -3,7 +3,7 @@
   "appName": "كتابا موقوتا",
   "webDir": "www",
   "android": {
-    "backgroundColor": "#e6f2ee"
+    "backgroundColor": "#0b3d2e"
   },
   "plugins": {
     "CapacitorHttp": {
