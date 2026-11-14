@@ -293,19 +293,31 @@ function adhkarSlide(i, key) {
   const line = s => esc(s).replace(/\((\d+)\)/g, (m, n) => `<i>${dg(n)}</i>`);
   return `${A.title ? `<h2>${esc(A.title)}</h2>` : ''}<div class="fit">${A.lines.map(l => `<p>${line(l)}</p>`).join('')}</div>${A.src ? `<div class="src">${esc(A.src)}</div>` : ''}`;
 }
-// biggest size that fits: one measurement, then scale the «.fit» block (transform keeps the text sharp)
+// biggest size that fits: lower the font size of the «.fit» block (CSS variable --fz used by every text rule) until it fits,
+// so the lines re-wrap at the real size (a plain scale() of over-wrapped text gave a thin column of tiny words)
 function fitBox(root) {
   for (const f of root.querySelectorAll('.fit')) {
     const box = f.parentElement;
-    f.style.transform = '';
-    const cs = getComputedStyle(box), br = box.getBoundingClientRect(), fr = f.getBoundingClientRect();
-    const k = box.offsetWidth ? br.width / box.offsetWidth : 1;          // the mini preview in the settings is scaled down
-    const top = br.top + parseFloat(cs.paddingTop) * k, bot = br.bottom - parseFloat(cs.paddingBottom) * k;
-    const w = br.width / k - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-    const centred = getComputedStyle(f).transformOrigin && f.dataset.o !== 'top' && cs.justifyContent === 'center';
-    const availH = (centred ? bot - top : bot - Math.max(top, fr.top)) / k;
-    const s = Math.min(1, availH / f.scrollHeight, w / f.scrollWidth);
-    if (s < 0.999) { f.style.transformOrigin = centred ? '50% 50%' : '50% 0'; f.style.transform = `scale(${s.toFixed(4)})`; }
+    f.style.transform = ''; f.style.setProperty('--fz', '1');
+    const cs = getComputedStyle(box);
+    const centred = f.dataset.o !== 'top' && cs.justifyContent === 'center';
+    const fits = () => {
+      const br = box.getBoundingClientRect(), fr = f.getBoundingClientRect();
+      const k = box.offsetWidth ? br.width / box.offsetWidth : 1;          // the mini preview in the settings is scaled down
+      const top = br.top + parseFloat(cs.paddingTop) * k, bot = br.bottom - parseFloat(cs.paddingBottom) * k;
+      const w = br.width / k - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      const availH = (centred ? bot - top : bot - Math.max(top, fr.top)) / k;
+      return { ok: f.scrollHeight <= availH + 1 && f.scrollWidth <= w + 1, availH, w };
+    };
+    if (fits().ok) { f.dataset.fz = '1'; continue; }
+    let lo = 0.2, hi = 1;
+    for (let i = 0; i < 8; i++) { const mid = (lo + hi) / 2; f.style.setProperty('--fz', mid.toFixed(4)); if (fits().ok) lo = mid; else hi = mid; }
+    f.style.setProperty('--fz', lo.toFixed(4)); f.dataset.fz = lo.toFixed(3);
+    const r = fits();
+    if (!r.ok) {                                   // still too big at 20 %: last resort, scale it
+      const s = Math.min(1, r.availH / f.scrollHeight, r.w / f.scrollWidth);
+      f.style.transformOrigin = centred ? '50% 50%' : '50% 0'; f.style.transform = `scale(${s.toFixed(4)})`;
+    }
   }
 }
 
@@ -426,22 +438,50 @@ const ZONES = [['mos', 'اسم المسجد', 5.4, () => cfg.mosque_name || 'م�
   ['adhkar', 'الأذكار', 6.4, () => 'أَسْتَغْفِرُ اللهَ', '.adk h2,.adk p,.adk .src'], ['hadith', 'حديث الجمعة', 7, () => 'مَنْ لَغَا فَلَا جُمُعَةَ لَهُ', '.hadith p']];
 const zOf = k => Math.max(50, Math.min(250, ((cfg.tv_z || {})[k]) || 100)) / 100;
 const zFont = k => ((cfg.tv_zf || {})[k]) || '';
+// size (rem = 1vh) and line height of every text inside each part: scaled by the part's size % and line spacing %
+// size (rem = 1vh) and line height of every text inside each part, scaled by the part's size % and line spacing %
+// (line height null = the font's normal spacing; it is only set when the user changes the spacing)
+const ZRULES = {
+  mos: [['.tv-mos', 5.4, 1.15], ['.tv-mos small', 2.6, 1.15]],
+  clock: [['#tv-clock', 13, 1], ['#tv-sec', 4.6, 1]],
+  date: [['#tv-date', 3.2, 1.55]],
+  next: [['#tv-nexthead .lab', 3, null], ['#tv-nexthead .nm', 9, 1.15], ['#tv-nexthead .tm', 5.2, null], ['#tv-nexthead .iq', 3.2, null],
+    ['#tv-cdbox span', 3.2, null], ['#tv-cd', 8, 1]],
+  panel: [['#tv-panel h3', 3.4, null], ['#tv-panel .big', 8, 1.45], ['#tv-panel .big.fn', 6.4, 1.3], ['#tv-panel .fh', 3.6, null], ['#tv-panel .fv', 4, 1.6],
+    ['#tv-panel .hzt', 3, null], ['#tv-panel .hzt b', 6, null], ['#tv-panel .q', 5, 1.7], ['#tv-panel .hzr', 2.5, null]],
+  cards: [['.pc .pn', 3.8, null, 3.3], ['.pc .pt', 7, 1.15, 5.2], ['.pc .pi', 2.6, null, 1.65]],      // 4th: max size in vw (6 cards side by side)
+  ticker: [['#tv-ticker .tk', 3.6, null]],
+  iqama: [['#tv-over .ovl', 6, null], ['#tv-over .ovt', 11, null], ['#tv-over .ovc', 30, 1], ['#tv-over .ovn', 4, null]],
+  adhkar: [['.adk h2', 7, null], ['.adk p', 6.4, 1.8], ['.adk .src', 3, null], ['.adk .q', 5.6, 1.7], ['.adk .big2', 5.4, 1.9],
+    ['.adk .sura b', 3.4, null], ['.adk .sura .q', 4.8, 1.7]],
+  hadith: [['.hadith p', 7, 1.7]],
+};
+const lOf = k => Math.max(70, Math.min(220, ((cfg.tv_zl || {})[k]) || 100)) / 100;
 function zoneCss() {
-  const z = k => zOf(k).toFixed(3), r = (k, rem) => `calc(${rem}rem * ${z(k)})`;
+  let css = '';
+  for (const [k, rules] of Object.entries(ZRULES))
+    for (const [sel, rem, lh, maxVw] of rules) {
+      const l = lOf(k), lt = lh != null ? (lh * l).toFixed(3) : l !== 1 ? (1.45 * l).toFixed(3) : '';
+      const fs = `calc(${(rem * zOf(k)).toFixed(3)}rem * var(--fz, 1))`;
+      css += `body.tv ${sel}{font-size:${maxVw ? `min(${fs}, ${maxVw}vw)` : fs}${lt ? ';line-height:' + lt : ''}}`;
+    }
+  css += `#tv-ticker{height:calc(6.4vh * ${Math.max(zOf('ticker'), lOf('ticker')).toFixed(3)})}`;
   let fonts = '';
   for (const [k, , , , sel] of ZONES) {
-    const f = zFont(k), fi = f && S.FONTS.find(x => x[0] === f);
-    if (!fi) continue;
-    fonts += `@font-face{font-family:'Z-${f}';src:url('fonts/${fi[3]}');font-weight:100 500}@font-face{font-family:'Z-${f}';src:url('fonts/${fi[4]}');font-weight:600 900}`;
-    fonts += sel.split(',').map(s => `${s},${s} *`).join(',') + `{font-family:'Z-${f}','TVF',sans-serif !important}`;
+    const f = zFont(k); if (!f || !S.FONTS.find(x => x[0] === f)) continue;
+    fonts += sel.split(',').map(s => `body.tv ${s},body.tv ${s} *`).join(',') + `{font-family:'Z-${f}','TVF',sans-serif !important}`;
   }
   if (fonts) fonts += `body.tv .q{font-family:'QuranWarsh','Amiri',serif !important}body.tv[data-riwaya=hafs] .q{font-family:'QuranHafs','Amiri',serif !important}`;
-  return fonts + `.tv-mos{font-size:${r('mos', 5.4)}}.tv-mos small{font-size:${r('mos', 2.6)}}
-    #tv-clock{font-size:${r('clock', 13)}}#tv-sec{font-size:${r('clock', 4.6)}}#tv-date{font-size:${r('date', 3.2)}}
-    #tv-next .fit>*{zoom:${z('next')}}#tv-panel .fit>*,#tv-panel h3{zoom:${z('panel')}}
-    .pc .pn{font-size:${r('cards', 3.8)}}.pc .pt{font-size:${r('cards', 7)}}.pc .pi{font-size:${r('cards', 2.6)}}
-    #tv-ticker{height:calc(6.4vh * ${z('ticker')})}#tv-ticker .tk{font-size:${r('ticker', 3.6)}}#tv-over>.ovc,#tv-over>.ovl,#tv-over>.ovt,#tv-over>.ovn{zoom:${z('iqama')}}
-    .adk .fit>*,.adk h2{zoom:${z('adhkar')}}.hadith .fit>*{zoom:${z('hadith')}}`;
+  return css + fonts;
+}
+// @font-face rules live in their own <style>, rewritten only when the chosen fonts change:
+// rewriting them on every size step made the browser reload the fonts and show a fallback (Kufi / Amiri) for a moment
+function fontFaces() {
+  const used = new Set([cfg.tv_font, ...Object.values(cfg.tv_zf || {}).filter(Boolean)]);
+  const f = fontInfo(cfg.tv_font);
+  let css = `@font-face{font-family:'TVF';src:url('fonts/${f[3]}');font-weight:100 500}@font-face{font-family:'TVF';src:url('fonts/${f[4]}');font-weight:600 900}`;
+  for (const id of used) { const fi = S.FONTS.find(x => x[0] === id); if (fi) css += `@font-face{font-family:'Z-${id}';src:url('fonts/${fi[3]}');font-weight:100 500}@font-face{font-family:'Z-${id}';src:url('fonts/${fi[4]}');font-weight:600 900}`; }
+  const st = $('tv-faces'); if (st && st.textContent !== css) st.textContent = css;
 }
 const lines = s => String(s || '').split('\n').map(x => x.trim()).filter(Boolean);
 function listRows(id, items, ph) {
@@ -493,7 +533,9 @@ function settingsHtml() {
    <h3>الخط وحجمه لكل جزء من الشاشة</h3>
    <div class="chips"${pv('zone')}>${zc}</div>
    <div class="g2"${pv('zone')}><label>نوع خط الجزء المختار<select id="z-font"><option value="">مثل الخط العام</option>${fo}</select></label>
-    <div><label>حجمه</label><div class="zrow"><button id="z-minus">−</button><b id="z-val">100%</b><button id="z-plus">+</button><button id="z-reset">100%</button></div></div></div>
+    <div><label>حجمه</label><div class="zrow"><button id="z-minus">−</button><b id="z-val">100%</b><button id="z-plus">+</button><button id="z-reset">100%</button></div></div>
+    <div></div><div><label>تباعد الأسطر</label><div class="zrow"><button id="l-minus">−</button><b id="l-val">100%</b><button id="l-plus">+</button><button id="l-reset">100%</button></div></div></div>
+   <small id="z-note"></small>
    <h3>الإعلانات للمصلين <small>(اللوحة والشريط المتحرك)</small></h3>
    <div id="s-news"${pv('normal')}>${listRows('news', lines(cfg.tv_news), 'نص الإعلان')}</div><button class="add" id="add-news"${pv('normal')}>+ إضافة إعلان</button>
    <label class="chk"${pv('normal')}><input type="checkbox" id="s-fast"${cfg.tv_fast !== false ? ' checked' : ''}><span>إعلانات صيام التطوع تلقائياً: الأيام البيض، عاشوراء وتاسوعاء، عرفة والعشر، الست من شوال، أول محرم — قبلها بيومين وبيوم وفي يومها، مع ذكر فضلها</span></label>
@@ -531,14 +573,32 @@ function zoneUI() {
   $('z-val').textContent = v + '%';
   const px = innerHeight / 100 * z[2] * zOf(ZSEL);       // the real size on the screen
   $('z-font').value = zFont(ZSEL);
+  $('l-val').textContent = Math.round(lOf(ZSEL) * 100) + '%';
   if (PV) showPV(zonePV());
+  setTimeout(fitNote, 120);
+}
+// the text of some parts is shrunk to stay inside its frame: say so, otherwise «+» seems to do nothing
+function fitNote() {
+  const n = $('z-note'); if (!n) return;
+  const box = { next: '#tv-next', panel: '#tv-panel', adhkar: '.adk', hadith: '.hadith' }[ZSEL];
+  const f = box && document.querySelector(box + ' .fit');
+  const capped = (ZRULES[ZSEL] || []).find(x => x[3]);
+  if (!box && capped) {                       // parts with a maximum size (the 6 prayer cards must stay side by side)
+    const e = document.querySelector(capped[0]), unit = innerHeight / 100 * capped[1];
+    const got = e ? parseFloat(getComputedStyle(e).fontSize) : 0;
+    n.textContent = e && got < unit * zOf(ZSEL) - 1 ? `⚠️ وصل هذا الجزء إلى أكبر حجم يتّسع له عرض الشاشة (${Math.round(got / unit * 100)}%). التكبير بعد هذا لن يظهر.` : '';
+    return;
+  }
+  const fz = f ? +(f.dataset.fz || 1) : 1;
+  n.textContent = fz < 0.98 ? `⚠️ نص هذا الجزء أكبر من إطاره فيُصغَّر تلقائياً ليبقى داخله: الحجم الظاهر الآن ${Math.round(zOf(ZSEL) * fz * 100)}%. التكبير بعد هذا لن يظهر.` : '';
 }
 // ---- live mini screen beside the settings (the real display, scaled down)
 const zonePV = () => ({ iqama: { phase: 'iqama' }, adhkar: { phase: 'adhkar', k: adkK() }, hadith: { phase: 'jumua' } }[ZSEL] || { phase: 'normal' });
 const adkK = () => (adkKey === 'all' ? 'dhuhr' : adkKey);
 function refreshPV() {
   for (const id of ['tv-ticker', 'tv-panel', 'tv-nexthead', 'tv-over', 'tv-prayers', 'tv-date']) { const e = $(id); if (e) { e._h = null; e._t = null; } }
-  render();
+  render(); fitBox($('tv-next'));
+  clearTimeout(refreshPV.t); refreshPV.t = setTimeout(fitNote, 150);
 }
 function showPV(p) {
   const same = PV && p && PV.phase === p.phase && PV.k === p.k;
@@ -666,6 +726,10 @@ async function openSettings() {
   $('z-minus').onclick = () => zSet(Math.round(zOf(ZSEL) * 100) - 10);
   $('z-plus').onclick = () => zSet(Math.round(zOf(ZSEL) * 100) + 10);
   $('z-reset').onclick = () => zSet(100);
+  const lSet = v => { cfg.tv_zl = { ...(cfg.tv_zl || {}), [ZSEL]: Math.max(70, Math.min(220, v)) }; save(); applyTheme(); zoneUI(); refreshPV(); dirty = true; };
+  $('l-minus').onclick = () => lSet(Math.round(lOf(ZSEL) * 100) - 10);
+  $('l-plus').onclick = () => lSet(Math.round(lOf(ZSEL) * 100) + 10);
+  $('l-reset').onclick = () => lSet(100);
   $('z-font').onchange = e => { e.stopPropagation(); cfg.tv_zf = { ...(cfg.tv_zf || {}), [ZSEL]: $('z-font').value }; save(); applyTheme(); zoneUI(); refreshPV(); dirty = true; };
   zoneUI();
   // clock
@@ -856,6 +920,7 @@ body[data-phase=prayer] .ovt{color:#9a8a5a}
 #tv-settings{position:fixed;inset:0;display:none;background:rgba(0,0,0,.6);z-index:5;overflow:auto;padding:3vh 4vw;cursor:default}
 #tv-settings.on{display:block}
 body.setting:not(.pv) #tv,body.setting:not(.pv) #tv-over{display:none !important}body.setting #tv-settings{background:#dfe7ea}
+body.setting.pv #tv{background:var(--bg)}
 body.setting.pv #tv,body.setting.pv #tv-over{position:fixed;inset:auto;left:1.6vw;top:24vh;width:100vw;height:100vh;transform:scale(.41);transform-origin:0 0;
   z-index:6;border-radius:3vh;overflow:hidden;box-shadow:0 0 0 .8vh #fff,0 2vh 6vh rgba(0,0,0,.45);pointer-events:none}
 body.setting.pv[data-phase=normal] #tv-over{display:none}body.setting.pv:not([data-phase=normal]) #tv-over{z-index:7}
@@ -896,9 +961,10 @@ body.setting #tv-settings{padding:2vh 1.5vw}
 function applyTheme() {
   const t = THEMES[cfg.tv_theme] || THEMES.zellige;
   const f = fontInfo(cfg.tv_font);
-  const faces = `@font-face{font-family:'TVF';src:url('fonts/${f[3]}');font-weight:100 500}@font-face{font-family:'TVF';src:url('fonts/${f[4]}');font-weight:600 900}`;
+  fontFaces();
   const band = t[1].includes('--band:none') ? '0px' : '5vh';
-  $('tv-theme').textContent = faces + `body.tv{${t[1]};--bandh:${band};--sc:1}` + zoneCss();
+  const css = `body.tv{${t[1]};--bandh:${band};--sc:1}` + zoneCss();
+  if ($('tv-theme').textContent !== css) $('tv-theme').textContent = css;
   document.body.dataset.riwaya = cfg.riwaya === 'hafs' ? 'hafs' : 'warsh';
   $('tv-mos').innerHTML = `${esc(cfg.mosque_name || 'مواقيت الصلاة')}<small>${esc(cfg.city_ar)}${cfg.city_name && cfg.city_name !== cfg.city_ar ? ' · ' + esc(cfg.city_name) : ''}</small>`;
 }
@@ -907,7 +973,7 @@ export async function start() {
   cfg = load();
   document.body.className = 'tv'; document.body.dataset.phase = 'normal';
   const pv = S.FONTS.map(f => `@font-face{font-family:'F-${f[0]}';src:url('fonts/${f[4]}')}`).join('');   // previews in the settings
-  document.body.innerHTML = `<style>${CSS}${pv}</style><style id="tv-theme"></style>
+  document.body.innerHTML = `<style>${CSS}${pv}</style><style id="tv-faces"></style><style id="tv-theme"></style>
    <div id="tv"><div class="tv-head"><div class="tv-mos" id="tv-mos"></div><div id="tv-clockbox"><span id="tv-clock"></span><span id="tv-sec"></span></div><div id="tv-date"></div></div>
     <div class="tv-mid"><div class="box" id="tv-next"><div class="fit"><div id="tv-nexthead"></div><div id="tv-cdbox"><span>بعد</span><b id="tv-cd"></b></div></div></div><div class="box" id="tv-panel"></div></div>
     <div id="tv-prayers"></div><div id="tv-ticker"></div></div>
