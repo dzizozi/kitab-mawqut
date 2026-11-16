@@ -34,10 +34,14 @@ function go(el) {
   el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 }
 
+import * as PK from './picker.js';
 const isTV = () => localStorage.getItem('mode') === 'tv' || document.body.classList.contains('tv');
 export function enableRemote() {
+  if (!isTV()) PK.takeOverSelects();
   document.addEventListener('keydown', e => {
     if (isTV()) return;     // the mosque display has its own navigation (otherwise every press moves the focus twice)
+    if (PK.pickerKey(e)) return;
+    if ((e.key === 'Enter' || e.key === ' ') && document.activeElement && document.activeElement.tagName === 'SELECT') { e.preventDefault(); PK.openPicker(document.activeElement); return; }
     const dir = { ArrowDown: [0, 1], ArrowUp: [0, -1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] }[e.key];
     const el = document.activeElement && document.activeElement !== document.body ? document.activeElement : null;
     if (e.key === 'Enter' && el && TEXT(el) && el.readOnly && el.dataset.kmro) {      // OK on a text field: start typing

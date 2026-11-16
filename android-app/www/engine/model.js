@@ -16,8 +16,13 @@ let PLACES = null, HABOUS_CITIES = null;
 export async function loadPlaces() {
   if (!PLACES) {
     const r = await fetch('data/places.dat');
-    const ds = r.body.pipeThrough(new DecompressionStream('gzip'));
-    PLACES = JSON.parse(await new Response(ds).text());
+    if (typeof DecompressionStream !== 'undefined') {
+      const ds = r.body.pipeThrough(new DecompressionStream('gzip'));
+      PLACES = JSON.parse(await new Response(ds).text());
+    } else {                      // old Android TV WebViews (before Chrome 80): small JS gunzip (fflate, MIT)
+      const { gunzipSync, strFromU8 } = await import('../lib/gunzip.js');
+      PLACES = JSON.parse(strFromU8(gunzipSync(new Uint8Array(await r.arrayBuffer()))));
+    }
     HABOUS_CITIES = await (await fetch('data/habous_cities.json')).json();
   }
   return PLACES;

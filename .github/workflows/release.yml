@@ -78,6 +78,7 @@ jobs:
           npm ci
           node scripts/copy-libs.mjs
           npx cap sync android
+          node scripts/legacy.mjs     # old Android TV WebViews (Chrome 63+)
           if [ -n "$KEYSTORE_B64" ]; then
             echo "$KEYSTORE_B64" | base64 -d > $RUNNER_TEMP/release.jks
             printf "storeFile=%s\nstorePassword=%s\nkeyAlias=alkitab\nkeyPassword=%s\n" "$RUNNER_TEMP/release.jks" "$KEY_PASSWORD" "$KEY_PASSWORD" > $RUNNER_TEMP/signing.properties

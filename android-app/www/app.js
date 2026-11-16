@@ -183,7 +183,8 @@ async function boot() {
   $('b-tvmode').onclick = () => { localStorage.setItem('mode', 'tv'); location.reload(); };
   // short «Back»: close the keyboard → back to the first tab → leave the app
   const AppP = globalThis.Capacitor && globalThis.Capacitor.Plugins && globalThis.Capacitor.Plugins.App;
-  if (AppP) AppP.addListener('backButton', () => {
+  if (AppP) AppP.addListener('backButton', async () => {
+    const PK = await import('./picker.js'); if (PK.pickerOpen()) { PK.closePicker(); return; }
     const el = document.activeElement;
     if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') && !el.readOnly) { el.blur(); return; }
     const first = document.querySelector('nav button');

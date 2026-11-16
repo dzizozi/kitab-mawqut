@@ -6,6 +6,7 @@
 import { S } from './engine/shared.js';
 import * as model from './engine/model.js';
 import * as U from './update.js';
+import * as PK from './picker.js';
 
 const $ = id => document.getElementById(id);
 const CAP = globalThis.Capacitor, P = (CAP && CAP.Plugins) || {};
@@ -781,6 +782,7 @@ function focusables() { return [...$('tv-settings').querySelectorAll('input,sele
 let lastNav = 0;
 function onKey(e) {
   if (localStorage.getItem('kmperf')) { const t0 = performance.now(); requestAnimationFrame(() => requestAnimationFrame(() => { const a = document.activeElement; console.log('KMPERF ' + e.key + (e.repeat ? '(rep)' : '') + ' ' + Math.round(performance.now() - t0) + 'ms -> ' + (a.id || a.dataset.zone || a.dataset.list || a.dataset.ak || a.tagName) + ' ro=' + a.readOnly); })); }
+  if (PK.pickerKey(e)) return;                                         // the app's own option list is open
   if (U.netVisible()) { U.netKey(e); return; }                         // «connect to the internet» notice
   if (U.barHasFocus()) { U.barKey(e); return; }                       // the «new version» banner has the focus
   const open = $('tv-settings').classList.contains('on');
@@ -801,6 +803,7 @@ function onKey(e) {
   const f = focusables(), el = document.activeElement;
   const text = el && el.type !== 'checkbox' && (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT');
   const typing = text && !el.readOnly;
+  if ((e.key === 'Enter' || e.key === ' ') && el && el.tagName === 'SELECT') { e.preventDefault(); PK.openPicker(el); return; }   // never the native list
   if (e.key === 'Enter' && el && (el.type === 'checkbox' || el.tagName === 'BUTTON')) { e.preventDefault(); el.click(); return; }
   if (e.key === 'Enter' && text && el.readOnly) {                      // OK: start typing (keyboard opens)
     e.preventDefault(); el.blur(); el.readOnly = false; el.focus(); el.click();
@@ -997,12 +1000,13 @@ export async function start() {
   try { await document.fonts.ready; } catch (e) { }
   await build(); render();
   document.addEventListener('keydown', onKey);
+  PK.takeOverSelects();
   document.addEventListener('click', e => {                 // touch / mouse on the display opens the settings
     if (!e.target.closest || !e.target.closest('#tv,#tv-over')) return;
     if (!$('tv-settings').classList.contains('on')) openSettings();
   });
   // remote «Back»: closes the settings; on the display itself it does nothing (the screen must stay on)
-  try { if (P.App) P.App.addListener('backButton', () => { if ($('tv-settings').classList.contains('on')) closeSettings(); }); } catch (e) { }
+  try { if (P.App) P.App.addListener('backButton', () => { if (PK.pickerOpen()) { PK.closePicker(); return; } if ($('tv-settings').classList.contains('on')) closeSettings(); }); } catch (e) { }
   // tick on the second boundary
   const tick = () => { try { if (!document.body.classList.contains('setting') || PV) render(); } catch (e) { console.error(e); } setTimeout(tick, 1005 - (Date.now() % 1000)); };
   setTimeout(tick, 1005 - (Date.now() % 1000));
