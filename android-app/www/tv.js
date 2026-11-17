@@ -15,9 +15,11 @@ const KEYS = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
 const PRAYERS = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
 
 export // mosque etiquette reminders: «advice | hadith — source», one per line (editable in the settings)
+const CAM_NOTE = 'حفاظاً على أمن المصلّين وممتلكاتهم، المسجد مجهّز بكاميرات للمراقبة';
+let tickAdab = 0;      // one etiquette reminder per pass of the ticker, in turn
 const DEF_ADAB = "المسجد بيت الله، فلنحفظ له حرمته ووقاره | قال رسول الله ﷺ: «إِنَّ هَذِهِ الْمَسَاجِدَ لَا تَصْلُحُ لِشَيْءٍ مِنْ هَذَا الْبَوْلِ وَلَا الْقَذَرِ، إِنَّمَا هِيَ لِذِكْرِ اللَّهِ عَزَّ وَجَلَّ، وَالصَّلَاةِ، وَقِرَاءَةِ الْقُرْآنِ» — رواه مسلم\nالكلام في المسجد للضرورة فقط | قال رسول الله ﷺ: «مَنْ كَانَ يُؤْمِنُ بِاللَّهِ وَالْيَوْمِ الْآخِرِ فَلْيَقُلْ خَيْرًا أَوْ لِيَصْمُتْ» — متفق عليه\nاخفضوا أصواتكم، ولا تُشوِّشوا على المصلّين والذاكرين | قال رسول الله ﷺ: «أَلَا إِنَّ كُلَّكُمْ مُنَاجٍ رَبَّهُ، فَلَا يُؤْذِيَنَّ بَعْضُكُمْ بَعْضًا، وَلَا يَرْفَعْ بَعْضُكُمْ عَلَى بَعْضٍ فِي الْقِرَاءَةِ» — رواه أبو داود وصحّحه الألباني\nحيّوا المسجد بركعتين قبل الجلوس | قال رسول الله ﷺ: «إِذَا دَخَلَ أَحَدُكُمُ الْمَسْجِدَ فَلْيَرْكَعْ رَكْعَتَيْنِ قَبْلَ أَنْ يَجْلِسَ» — متفق عليه\nلا تمرّوا بين يدي المصلّي | قال رسول الله ﷺ: «لَوْ يَعْلَمُ الْمَارُّ بَيْنَ يَدَيِ الْمُصَلِّي مَاذَا عَلَيْهِ، لَكَانَ أَنْ يَقِفَ أَرْبَعِينَ خَيْرًا لَهُ مِنْ أَنْ يَمُرَّ بَيْنَ يَدَيْهِ» — متفق عليه\nتجنّبوا الروائح الكريهة قبل القدوم إلى المسجد | قال رسول الله ﷺ: «مَنْ أَكَلَ مِنْ هَذِهِ الشَّجَرَةِ - يَعْنِي الثُّومَ - فَلَا يَقْرَبَنَّ مَسْجِدَنَا» — متفق عليه\nحافظوا على نظافة المسجد وفُرُشه | قال رسول الله ﷺ: «الْبُزَاقُ فِي الْمَسْجِدِ خَطِيئَةٌ، وَكَفَّارَتُهَا دَفْنُهَا» — متفق عليه";
 const TV_DEFAULTS = {
-  tv_theme: 'zellige', riwaya: 'warsh', digits: 'auto', tv_font: 'cairo', tv_scale: 100, tv_res: 'auto', method_auto: true, clock_mode: 'auto', clock_adj: 0, tv_fast: true, tv_fast_week: false, tv_adab_on: true,
+  tv_theme: 'zellige', riwaya: 'warsh', digits: 'auto', tv_font: 'cairo', tv_scale: 100, tv_res: 'auto', method_auto: true, clock_mode: 'auto', clock_adj: 0, tv_fast: true, tv_fast_week: false, tv_adab_on: true, tv_cam: false,
   tv_adab: DEF_ADAB,
   iqama: { fajr: 20, dhuhr: 15, asr: 15, maghrib: 7, isha: 10 }, jumua_iqama: 30,
   prayer_min: 10, adhkar_min: 7, friday_before: 45,
@@ -263,7 +265,10 @@ const ORN = s => s.replace(/([۞﴾﴿])/g, '<span class="orn">$1</span>');
 function newsAll(now) {                    // mosque announcements + automatic fasting reminders (HTML)
   const own = (cfg.tv_news || '').split('\n').map(s => s.trim()).filter(Boolean).map(esc);
   const fast = fastNews(now).map(f => ORN(esc(`۞ ${f.text} (${f.date}) ﴿\u00a0${f.virtue}\u00a0﴾ ۞`)));
-  return [...fast, ...own, ...adab().map(a => ORN(esc(`۞ ${a.text}`) + (a.hadith ? ' ' + esc(`﴿\u00a0${a.hadith}\u00a0﴾`) : '') + ' ۞'))];
+  const cam = cfg.tv_cam ? [esc('📹 ' + CAM_NOTE)] : [];
+  const A = adab(), a = A.length ? A[tickAdab % A.length] : null;
+  const one = a ? [ORN(esc(`۞ ${a.text}`) + (a.hadith ? ' ' + esc(`﴿\u00a0${a.hadith}\u00a0﴾`) : '') + ' ۞')] : [];
+  return [...fast, ...own, ...cam, ...one];
 }
 function adab() {                          // [{text, hadith}]
   if (cfg.tv_adab_on === false) return [];
@@ -277,6 +282,7 @@ function slides(row) {
   for (const ev of (row && row.events) || []) list.push(`<h3>مناسبة اليوم</h3><div class="fit"><div class="big">${esc(ev[0])}</div></div>`);
   for (const line of (cfg.tv_news || '').split('\n').map(s => s.trim()).filter(Boolean))
     list.push(`<h3>إعلان للمصلين</h3><div class="fit"><div class="big">${esc(line)}</div></div>`);
+  if (cfg.tv_cam) list.push(`<h3>تنبيه للمصلين</h3><div class="fit"><div class="big fn">📹 ${esc(CAM_NOTE)}</div></div>`);
   for (const a of adab())
     list.push(`<h3>آداب المسجد</h3><div class="fit"><div class="big fn">${ORN('۞ ' + esc(a.text) + ' ۞')}</div>${a.hadith ? `<div class="fv">${ORN('﴿\u00a0' + esc(a.hadith) + '\u00a0﴾')}</div>` : ''}</div>`);
   return list.length ? list : [`<div class="fit"><div class="big">${esc(cfg.mosque_name || 'كتابا موقوتا')}</div></div>`];
@@ -344,6 +350,7 @@ function ticker(news) {
   box._t = news;
   box.innerHTML = `<span class="tk">${news || '&nbsp;'}</span>`;     // already escaped HTML
   const span = box.firstChild;
+  span.addEventListener('animationiteration', () => { tickAdab++; box._t = null; });   // next pass: the next reminder
   requestAnimationFrame(() => {
     const w = span.offsetWidth, W = box.clientWidth, speed = Math.max(60, W / 14);     // px per second
     span.style.setProperty('--from', -w + 'px'); span.style.setProperty('--to', W + 'px');
@@ -556,7 +563,8 @@ function settingsHtml() {
    <div id="s-news"${pv('normal')}>${listRows('news', lines(cfg.tv_news), 'نص الإعلان')}</div><button class="add" id="add-news"${pv('normal')}>+ إضافة إعلان</button>
    <label class="chk"${pv('normal')}><input type="checkbox" id="s-fast"${cfg.tv_fast !== false ? ' checked' : ''}><span>إعلانات صيام التطوع تلقائياً: الأيام البيض، عاشوراء وتاسوعاء، عرفة والعشر، الست من شوال، أول محرم — قبلها بيومين وبيوم وفي يومها، مع ذكر فضلها</span></label>
    <label class="chk"${pv('normal')}><input type="checkbox" id="s-fastw"${cfg.tv_fast_week ? ' checked' : ''}><span>التذكير أيضاً بصيام الإثنين والخميس (في اليوم السابق وفي يومه)</span></label>
-   <h3>آداب المسجد <small>(تظهر في اللوحة وفي الشريط المتحرك)</small></h3>
+   <h3>آداب المسجد <small>(كلها في اللوحة، وواحدة في كل دورة للشريط المتحرك)</small></h3>
+   <label class="chk"${pv('normal')}><input type="checkbox" id="s-cam"${cfg.tv_cam ? ' checked' : ''}><span>المسجد مجهّز بكاميرات: عرض التنبيه «${CAM_NOTE}»</span></label>
    <label class="chk"${pv('normal')}><input type="checkbox" id="s-adab-on"${cfg.tv_adab_on !== false ? ' checked' : ''}><span>عرض نصائح آداب المسجد مع الأحاديث</span></label>
    <div id="s-adab"${pv('normal')}>${listRows('adab', lines(cfg.tv_adab), 'النصيحة | الحديث — المصدر')}</div>
    <div class="row"><button class="add" id="add-adab"${pv('normal')}>+ إضافة نصيحة</button><button id="s-adab-reset">استعادة النصائح الأصلية</button></div>
@@ -655,7 +663,7 @@ function commit(full) {             // read every field, save, and refresh the s
     friday_before: NUM($('s-fri').value),
     tv_news: [...document.querySelectorAll('[data-list=news]')].map(i => i.value.trim()).filter(Boolean).join('\n'),
     tv_hadith: [...document.querySelectorAll('[data-list=hadith]')].map(i => i.value.trim()).filter(Boolean).join('\n'),
-    tv_fast: $('s-fast').checked, tv_fast_week: $('s-fastw').checked, tv_adab_on: $('s-adab-on').checked,
+    tv_fast: $('s-fast').checked, tv_fast_week: $('s-fastw').checked, tv_adab_on: $('s-adab-on').checked, tv_cam: $('s-cam').checked,
     tv_adab: [...document.querySelectorAll('[data-list=adab]')].map(i => i.value.trim()).filter(Boolean).join('\n') });
   FASTC.key = '';
   save(); applyTheme();
