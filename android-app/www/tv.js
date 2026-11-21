@@ -431,6 +431,12 @@ function render() {
   }
   if (setHTML(ov, html) && html) fitBox(ov);
   if (phase === 'adhan') AD.show(cfg, cur.k, cur.vid && AD.CATV(cur.vid)); else AD.hide();
+  // adhan text: full the whole time, 20 s then only a small line over the video, or the small line only
+  const amode = cfg.adhan_text || 'brief';
+  const bar = $('tv-abar'), btxt = phase === 'adhan' ? `أذان ${NAMES[cur.k]} · الإقامة ${hm(cur.iqama)}` : '';
+  if (bar && bar.textContent !== btxt) bar.textContent = btxt;
+  const amin =  phase === 'adhan' && !(PV && PV.phase === 'adhan' && !PV.min) && (amode === 'bar' || (amode === 'brief' && (PV ? !!PV.min : now - cur.adhan > 20000)));
+  ov.classList.toggle('adn-min', amin); if (bar) bar.classList.toggle('on', amin);
   if (phase !== 'adhkar') { adhkarI = 0; lastAdhkar = +now; }
 
   ticker(newsAll(now).join('     ✦     '));
@@ -565,6 +571,7 @@ function settingsHtml() {
    <h3>الأذان <small>(شاشة كاملة عند دخول وقت كل صلاة)</small></h3>
    <label class="chk"${pv('adhan', 'maghrib')}><input type="checkbox" id="s-adhan-on"${cfg.adhan_on !== false ? ' checked' : ''}><span>عرض شاشة الأذان عند دخول الوقت (يوم الجمعة يبقى حديث الجمعة)</span></label>
    <div class="g2"><label${pv('adhan', 'dhuhr')}>الإقامة والأذان<select id="s-adhan-mode"><option value="inside">مدة الإقامة تشمل مدة الأذان (وقت الإقامة لا يتغيّر)</option><option value="after">تُحسب مدة الإقامة بعد انتهاء الأذان</option></select></label>
+    <label${pv('adhan', 'maghrib')}>الكتابة أثناء الأذان<select id="s-adhan-text"><option value="brief">كاملة 20 ثانية، ثم الفيديو وحده مع سطر صغير</option><option value="full">كاملة طول مدة الأذان</option><option value="bar">سطر صغير فقط من البداية</option></select></label>
     <label${pv('adhan', 'maghrib')}>خلفية شاشة الأذان<select id="s-adhan-bg"><option value="video">الفيديو المنزَّل للصلاة إن وُجد، وإلا الرسم المتحرك</option><option value="anim">الرسم المتحرك فقط (دون إنترنت)</option></select></label></div>
    <label>مدة الأذان لكل صلاة (دقيقة:ثانية، مثال 4:30)</label>
    <div class="g6">${PRAYERS.map(k => `<label${pv('adhan', k)}>${NAMES[k]}<input type="text" inputmode="numeric" dir="ltr" class="num" id="ad-${k}" data-ad="${k}" value="${AD.fmtS(cfg.adhan_s[k])}"></label>`).join('')}</div>
@@ -692,7 +699,7 @@ function commit(full) {             // read every field, save, and refresh the s
     friday_before: NUM($('s-fri').value),
     tv_news: [...document.querySelectorAll('[data-list=news]')].map(i => i.value.trim()).filter(Boolean).join('\n'),
     tv_hadith: [...document.querySelectorAll('[data-list=hadith]')].map(i => i.value.trim()).filter(Boolean).join('\n'),
-    adhan_on: $('s-adhan-on').checked, adhan_mode: $('s-adhan-mode').value, adhan_bg: $('s-adhan-bg').value, adhan_protect: $('s-adhan-protect').checked,
+    adhan_on: $('s-adhan-on').checked, adhan_mode: $('s-adhan-mode').value, adhan_text: $('s-adhan-text').value, adhan_bg: $('s-adhan-bg').value, adhan_protect: $('s-adhan-protect').checked,
     adhan_s: Object.fromEntries(PRAYERS.map(k => [k, AD.parseS($('ad-' + k).value, cfg.adhan_s[k])])),
     tv_fast: $('s-fast').checked, tv_fast_week: $('s-fastw').checked, tv_adab_on: $('s-adab-on').checked, tv_cam: $('s-cam').checked,
     tv_adab: [...document.querySelectorAll('[data-list=adab]')].map(i => i.value.trim()).filter(Boolean).join('\n') });
@@ -785,7 +792,7 @@ async function openSettings() {
     row.remove(); commit(); go(nxt ? nxt.querySelector('input') : $(d.dataset.akdel !== undefined ? 'add-adk' : 'add-' + d.dataset.del.split(':')[0]));
   });
   // adhan: options, stopwatch, video gallery
-  $('s-adhan-mode').value = cfg.adhan_mode || 'inside'; $('s-adhan-bg').value = cfg.adhan_bg || 'video';
+  $('s-adhan-mode').value = cfg.adhan_mode || 'inside'; $('s-adhan-text').value = cfg.adhan_text || 'brief'; $('s-adhan-bg').value = cfg.adhan_bg || 'video';
   $('s-gal-p').value = GALK; $('s-gal-s').value = GALS;
   const galInfo = t => { const e = $('s-gal-info'); if (e) e.textContent = t; };
   const galDraw = () => { const g = $('s-gal'); if (g) g.innerHTML = AD.galleryTiles(cfg, GALK, GALS); };
@@ -1073,7 +1080,7 @@ export async function start() {
    <div id="tv"><div class="tv-head"><div class="tv-mos" id="tv-mos"></div><div id="tv-clockbox"><span id="tv-clock"></span><span id="tv-sec"></span></div><div id="tv-date"></div></div>
     <div class="tv-mid"><div class="box" id="tv-next"><div class="fit"><div id="tv-nexthead"></div><div id="tv-cdbox"><span>بعد</span><b id="tv-cd"></b></div></div></div><div class="box" id="tv-panel"></div></div>
     <div id="tv-prayers"></div><div id="tv-ticker"></div></div>
-   <div id="tv-abg"></div><div id="tv-over"></div><div id="tv-settings"></div>`;
+   <div id="tv-abg"></div><div id="tv-over"></div><div id="tv-abar"></div><div id="tv-settings"></div>`;
   applyTheme();
   try { if (P.Screen) await P.Screen.keepOn({ on: true }); } catch (e) { }
   applyRes();

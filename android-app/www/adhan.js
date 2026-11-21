@@ -4,7 +4,7 @@
 const CAP = globalThis.Capacitor, P = (CAP && CAP.Plugins) || {};
 const $ = id => document.getElementById(id);
 export const BASE = localStorage.getItem('km_media_base') || 'https://github.com/dzizozi/kitab-mawqut/releases/download/adhan-media-v1/';
-export const ADHAN_DEFAULTS = { adhan_on: true, adhan_mode: 'inside', adhan_bg: 'video', adhan_protect: true,
+export const ADHAN_DEFAULTS = { adhan_on: true, adhan_mode: 'inside', adhan_text: 'brief', adhan_bg: 'video', adhan_protect: true,
   adhan_s: { fajr: 300, dhuhr: 240, asr: 240, maghrib: 240, isha: 240 }, adhan_vids: {} };
 export const DUA = 'اللَّهُمَّ رَبَّ هَذِهِ الدَّعْوَةِ التَّامَّةِ، وَالصَّلَاةِ الْقَائِمَةِ، آتِ مُحَمَّدًا الْوَسِيلَةَ وَالْفَضِيلَةَ، وَابْعَثْهُ مَقَامًا مَحْمُودًا الَّذِي وَعَدْتَهُ';
 export const DUA_SRC = 'الدعاء بعد الأذان — رواه البخاري';
@@ -98,6 +98,9 @@ body[data-phase=adhan] #tv-over{background:transparent}body[data-phase=adhan] #t
 #tv-over .adn-d small{display:block;font-family:inherit;font-size:.6em;opacity:.8}
 body.setting.pv #tv-abg{position:fixed;inset:auto;left:1.6vw;top:24vh;width:100vw;height:100vh;transform:scale(.41);transform-origin:0 0;z-index:6;border-radius:3vh;pointer-events:none}
 body.setting:not(.pv) #tv-abg{display:none !important}
+body[data-phase=adhan] #tv-over{transition:opacity 2.5s ease}#tv-over.adn-min{opacity:0}
+#tv-abar{position:fixed;z-index:4;left:0;right:0;bottom:5vh;margin:auto;width:max-content;max-width:90vw;padding:1vh 3vw;border-radius:5vh;background:rgba(0,0,0,.42);color:#fff;font-size:4.2vh;font-weight:700;text-shadow:0 .2vh .8vh rgba(0,0,0,.7);opacity:0;transition:opacity 2.5s ease;pointer-events:none;display:none}
+body[data-phase=adhan] #tv-abar{display:block}#tv-abar.on{opacity:1}body.setting #tv-abar{display:none !important}
 .set .vgal{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:8px}
 .set .vgal button.vt{display:flex;flex-direction:column;padding:0 !important;overflow:hidden;text-align:center;border-radius:12px;background:#0b1a24;color:#fff;border:3px solid transparent}
 .set .vgal button.vt img{width:100%;height:118px;object-fit:cover;display:block;background:#123}
