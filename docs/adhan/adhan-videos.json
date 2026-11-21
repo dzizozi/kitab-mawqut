@@ -10,6 +10,23 @@
  },
  "videos": [
   {
+   "id": "ma-hassan2-fajr-predawn",
+   "prayers": [
+    "fajr"
+   ],
+   "style": "maghreb",
+   "title_ar": "مسجد الحسن الثاني قبيل الفجر",
+   "credit": "Day photo: Sutha Hasan, Pexels https://www.pexels.com/photo/19615125/",
+   "license": "Pexels License",
+   "ai": "Pre-dawn lighting and framing are AI-generated (Google Flow, Nano Banana) from the day photo, then animated with a still camera. Not a real dawn photograph.",
+   "file": "ma-hassan2-fajr-predawn.mp4",
+   "preview": "ma-hassan2-fajr-predawn.webp",
+   "bytes": 1725189,
+   "seconds": 8,
+   "width": 1280,
+   "height": 720
+  },
+  {
    "id": "ma-casa-fajr-sunrise",
    "prayers": [
     "fajr"
@@ -74,6 +91,23 @@
    "file": "ma-hassan2-asr-mist.mp4",
    "preview": "ma-hassan2-asr-mist.webp",
    "bytes": 2212564,
+   "seconds": 8,
+   "width": 1280,
+   "height": 720
+  },
+  {
+   "id": "ma-hassan2-maghrib-sunsea",
+   "prayers": [
+    "maghrib"
+   ],
+   "style": "maghreb",
+   "title_ar": "غروب الشمس في البحر أمام مسجد الحسن الثاني",
+   "credit": "Photo: Gabriel Garcia, Pexels https://www.pexels.com/photo/2404046/",
+   "license": "Pexels License",
+   "ai": "The setting sun, the sky and the framing are AI-generated (Google Flow, Nano Banana) from the dusk photo, then animated with a still camera. Not a real photograph of that sunset.",
+   "file": "ma-hassan2-maghrib-sunsea.mp4",
+   "preview": "ma-hassan2-maghrib-sunsea.webp",
+   "bytes": 3537597,
    "seconds": 8,
    "width": 1280,
    "height": 720
