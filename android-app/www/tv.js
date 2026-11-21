@@ -7,6 +7,7 @@ import { S } from './engine/shared.js';
 import * as model from './engine/model.js';
 import * as U from './update.js';
 import * as PK from './picker.js';
+import * as AD from './adhan.js';
 
 const $ = id => document.getElementById(id);
 const CAP = globalThis.Capacitor, P = (CAP && CAP.Plugins) || {};
@@ -22,7 +23,7 @@ const TV_DEFAULTS = {
   tv_theme: 'zellige', riwaya: 'warsh', digits: 'auto', tv_font: 'cairo', tv_scale: 100, tv_res: 'auto', method_auto: true, clock_mode: 'auto', clock_adj: 0, tv_fast: true, tv_fast_week: false, tv_adab_on: true, tv_cam: false,
   tv_adab: DEF_ADAB,
   iqama: { fajr: 20, dhuhr: 15, asr: 15, maghrib: 7, isha: 10 }, jumua_iqama: 30,
-  prayer_min: 10, adhkar_min: 7, friday_before: 45,
+  prayer_min: 10, adhkar_min: 7, friday_before: 45, ...AD.ADHAN_DEFAULTS,
   tv_news: 'يُرجى إغلاق الهاتف أو جعله على الصامت قبل الدخول في الصلاة\nسَوُّوا صُفُوفَكُمْ، فَإِنَّ تَسْوِيَةَ الصُّفُوفِ مِنْ إِقَامَةِ الصَّلَاةِ\nحافظوا على نظافة المسجد',
   tv_hadith: 'قال رسول الله ﷺ: «إِذَا قُلْتَ لِصَاحِبِكَ يَوْمَ الْجُمُعَةِ: أَنْصِتْ، وَالْإِمَامُ يَخْطُبُ، فَقَدْ لَغَوْتَ» متفق عليه\nوقال ﷺ: «وَمَنْ مَسَّ الْحَصَى فَقَدْ لَغَا» رواه مسلم',
 };
@@ -157,6 +158,8 @@ function load() {
   try { c = JSON.parse(localStorage.getItem('cfg') || '{}'); } catch (e) { }
   const out = { ...model.DEFAULTS, ...TV_DEFAULTS, ...c };
   out.iqama = { ...TV_DEFAULTS.iqama, ...(c.iqama || {}) };
+  out.adhan_s = { ...AD.ADHAN_DEFAULTS.adhan_s, ...(c.adhan_s || {}) };
+  out.adhan_vids = { ...(c.adhan_vids || {}) };
   out.tv_adhkar = { all: DEF_ADHKAR, ...(c.tv_adhkar || {}) };
   out.tune = { fajr: 0, sunrise: 0, dhuhr: 0, asr: 0, maghrib: 0, isha: 0, ...(c.tune || {}) };
   if (!THEMES[out.tv_theme]) out.tv_theme = 'zellige';
@@ -185,6 +188,9 @@ async function build() {
   }
   lastBuild = buildKey();
 }
+// adhan length (minutes) for a prayer, and the extra delay when the iqama is counted after the adhan
+const adhanMin = k => (+((cfg.adhan_s || {})[k]) || 240) / 60;
+const adhanAfter = k => cfg.adhan_on !== false && cfg.adhan_mode === 'after' ? adhanMin(k) : 0;
 function schedule(now) {
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const out = [];
@@ -195,7 +201,7 @@ function schedule(now) {
     KEYS.forEach((k, j) => {
       const adhan = at(d, row.times[j]);
       const key = fri && k === 'dhuhr' ? 'jumua' : k;
-      const iq = k === 'sunrise' ? null : addMin(adhan, key === 'jumua' ? +cfg.jumua_iqama : +(cfg.iqama[k] ?? 10));
+      const iq = k === 'sunrise' ? null : addMin(adhan, key === 'jumua' ? +cfg.jumua_iqama : +(cfg.iqama[k] ?? 10) + adhanAfter(k));
       out.push({ k: key, base: k, day: off, adhan, iqama: iq });
     });
   }
@@ -372,6 +378,7 @@ function render() {
     if (!p.iqama) continue;
     const endPrayer = addMin(p.iqama, p.k === 'jumua' ? 45 : +cfg.prayer_min);
     if (p.k === 'jumua' && now >= addMin(p.adhan, -cfg.friday_before) && now < p.iqama) { phase = 'jumua'; cur = p; break; }
+    if (cfg.adhan_on !== false && now >= p.adhan && now < Math.min(+addMin(p.adhan, adhanMin(p.k)), +p.iqama)) { phase = 'adhan'; cur = p; break; }
     if (now >= p.adhan && now < p.iqama) { phase = 'iqama'; cur = p; break; }
     if (now >= p.iqama && now < endPrayer) { phase = 'prayer'; cur = p; break; }
     if (now >= endPrayer && now < addMin(endPrayer, +cfg.adhkar_min)) { phase = 'adhkar'; cur = p; break; }
@@ -380,7 +387,8 @@ function render() {
     const k = PV.k || 'dhuhr';
     phase = PV.phase;
     cur = phase === 'jumua' ? { k: 'jumua', adhan: addMin(now, +cfg.friday_before || 0), iqama: addMin(now, (+cfg.friday_before || 0) + (+cfg.jumua_iqama || 0)) }
-      : phase === 'iqama' ? { k, adhan: addMin(now, -1), iqama: addMin(now, (+(cfg.iqama[k] ?? 10) || 1) - 1) } : { k };
+      : phase === 'iqama' ? { k, adhan: addMin(now, -1), iqama: addMin(now, (+(cfg.iqama[k] ?? 10) || 1) - 1) }
+      : phase === 'adhan' ? { k, adhan: now, iqama: addMin(now, +(cfg.iqama[k] ?? 10) + adhanAfter(k)), vid: PV.vid } : { k };
   }
   const next = sch.find(p => p.adhan > now);
   if (document.body.dataset.phase !== phase) document.body.dataset.phase = phase;
@@ -404,7 +412,10 @@ function render() {
   if (setHTML($('tv-panel'), sl[slideI % sl.length])) fitBox($('tv-panel'));
 
   const ov = $('tv-over'); let html = '';
-  if (phase === 'iqama') {
+  if (phase === 'adhan') {
+    html = `<div class="adn"><div class="adn-l">حان الآن موعد</div><div class="adn-t">أذان ${NAMES[cur.k]}</div><div class="adn-tm">${hm(cur.adhan)}</div>
+      <div class="adn-iq">الإقامة ${hm(cur.iqama)}${cfg.mosque_name ? ' · ' + esc(cfg.mosque_name) : ''}</div><div class="adn-d">${AD.DUA}<small>${AD.DUA_SRC}</small></div></div>`;
+  } else if (phase === 'iqama') {
     html = `<div class="ovl">أُذّن لصلاة ${NAMES[cur.k]}</div><div class="ovt">الإقامة بعد</div><div class="ovc">${dur(cur.iqama - now)}</div>
       <div class="ovn">${esc((cfg.tv_news || '').split('\n')[0] || '')}</div>`;
   } else if (phase === 'prayer') {
@@ -419,6 +430,7 @@ function render() {
       <div class="ovn">${toAdhan ? 'الأذان بعد ' + dur(cur.adhan - now) : 'الإقامة بعد ' + dur(cur.iqama - now)} · يُرجى إغلاق الهاتف والإنصات للخطبة</div>`;
   }
   if (setHTML(ov, html) && html) fitBox(ov);
+  if (phase === 'adhan') AD.show(cfg, cur.k, cur.vid && AD.CATV(cur.vid)); else AD.hide();
   if (phase !== 'adhkar') { adhkarI = 0; lastAdhkar = +now; }
 
   ticker(newsAll(now).join('     ✦     '));
@@ -458,7 +470,8 @@ const ZONES = [['mos', 'اسم المسجد', 5.4, () => cfg.mosque_name || 'م�
   ['date', 'التاريخ', 3.2, () => 'الجمعة 3 جمادى الثانية', '#tv-date'], ['next', 'الصلاة القادمة والعدّاد', 9, () => 'العصر 08:52', '#tv-next'],
   ['panel', 'الإعلانات والأحزاب', 8, () => (cfg.tv_news || '').split('\n')[0] || 'إعلان', '#tv-panel'], ['cards', 'بطاقات المواقيت', 7, () => 'الظهر 12:20', '#tv-prayers'],
   ['ticker', 'الشريط المتحرك', 3.6, () => (cfg.tv_news || '').split('\n')[0] || 'إعلان', '#tv-ticker'], ['iqama', 'شاشة الإقامة والصلاة', 30, () => '04:43', '.ovc,.ovl,.ovt,.ovn'],
-  ['adhkar', 'الأذكار', 6.4, () => 'أَسْتَغْفِرُ اللهَ', '.adk h2,.adk p,.adk .src'], ['hadith', 'حديث الجمعة', 7, () => 'مَنْ لَغَا فَلَا جُمُعَةَ لَهُ', '.hadith p']];
+  ['adhkar', 'الأذكار', 6.4, () => 'أَسْتَغْفِرُ اللهَ', '.adk h2,.adk p,.adk .src'], ['hadith', 'حديث الجمعة', 7, () => 'مَنْ لَغَا فَلَا جُمُعَةَ لَهُ', '.hadith p'],
+  ['adhan', 'شاشة الأذان', 14, () => 'أذان الظهر', '.adn-l,.adn-t,.adn-tm,.adn-iq']];
 const zOf = k => Math.max(50, Math.min(250, ((cfg.tv_z || {})[k]) || 100)) / 100;
 const zFont = k => ((cfg.tv_zf || {})[k]) || '';
 // size (rem = 1vh) and line height of every text inside each part: scaled by the part's size % and line spacing %
@@ -478,6 +491,7 @@ const ZRULES = {
   adhkar: [['.adk h2', 7, null], ['.adk p', 6.4, 1.8], ['.adk .src', 3, null], ['.adk .q', 5.6, 1.7], ['.adk .big2', 5.4, 1.9],
     ['.adk .sura b', 3.4, null], ['.adk .sura .q', 4.8, 1.7]],
   hadith: [['.hadith p', 7, 1.7]],
+  adhan: [['#tv-over .adn-l', 5, null], ['#tv-over .adn-t', 14, 1.1], ['#tv-over .adn-tm', 6, null], ['#tv-over .adn-iq', 3.6, null], ['#tv-over .adn-d', 3.4, 1.7]],
 };
 const lOf = k => Math.max(70, Math.min(220, ((cfg.tv_zl || {})[k]) || 100)) / 100;
 function zoneCss() {
@@ -548,6 +562,20 @@ function settingsHtml() {
    <div class="g6"${pv('iqama')}>${PRAYERS.map(k => `<label${pv('iqama', k)}>${NAMES[k]}${numIn('iq-' + k, cfg.iqama[k], ` data-iq="${k}"`)}</label>`).join('')}<label${pv('jumua')}>الجمعة${numIn('s-jiq', cfg.jumua_iqama)}</label></div>
    <div class="g3"><label${pv('prayer')}>مدة الصلاة${numIn('s-pmin', cfg.prayer_min)}</label><label${pv('adhkar')}>مدة الأذكار بعدها${numIn('s-amin', cfg.adhkar_min)}</label>
     <label${pv('jumua')}>الحديث قبل أذان الجمعة${numIn('s-fri', cfg.friday_before)}</label></div>
+   <h3>الأذان <small>(شاشة كاملة عند دخول وقت كل صلاة)</small></h3>
+   <label class="chk"${pv('adhan', 'maghrib')}><input type="checkbox" id="s-adhan-on"${cfg.adhan_on !== false ? ' checked' : ''}><span>عرض شاشة الأذان عند دخول الوقت (يوم الجمعة يبقى حديث الجمعة)</span></label>
+   <div class="g2"><label${pv('adhan', 'dhuhr')}>الإقامة والأذان<select id="s-adhan-mode"><option value="inside">مدة الإقامة تشمل مدة الأذان (وقت الإقامة لا يتغيّر)</option><option value="after">تُحسب مدة الإقامة بعد انتهاء الأذان</option></select></label>
+    <label${pv('adhan', 'maghrib')}>خلفية شاشة الأذان<select id="s-adhan-bg"><option value="video">الفيديو المنزَّل للصلاة إن وُجد، وإلا الرسم المتحرك</option><option value="anim">الرسم المتحرك فقط (دون إنترنت)</option></select></label></div>
+   <label>مدة الأذان لكل صلاة (دقيقة:ثانية، مثال 4:30)</label>
+   <div class="g6">${PRAYERS.map(k => `<label${pv('adhan', k)}>${NAMES[k]}<input type="text" inputmode="numeric" dir="ltr" class="num" id="ad-${k}" data-ad="${k}" value="${AD.fmtS(cfg.adhan_s[k])}"></label>`).join('')}</div>
+   <div class="g6">${PRAYERS.map(k => `<button class="ms" data-ms="${k}"${pv('adhan', k)}>⏱ قياس ${NAMES[k]}</button>`).join('')}</div>
+   <small>لقياس مدة أذان مؤذّن مسجدك مرة واحدة: اضغط «⏱ قياس» عند أول الأذان، ثم اضغطه مرة أخرى عند آخره؛ تُحفظ المدة لتلك الصلاة.</small>
+   <h3>فيديوهات خلفية الأذان <small>(اختيارية، تُنزَّل من الإنترنت مرة واحدة)</small></h3>
+   <label class="chk"><input type="checkbox" id="s-adhan-protect"${cfg.adhan_protect !== false ? ' checked' : ''}><span>حماية ذاكرة الجهاز: فيديو واحد لكل صلاة، والجديد يحلّ محلّ القديم. بإلغائها يمكن تنزيل عدة فيديوهات للصلاة تُعرض متتابعة.</span></label>
+   <div class="g2"><label>الصلاة<select id="s-gal-p">${PRAYERS.map(k => `<option value="${k}">${NAMES[k]}</option>`).join('')}</select></label>
+    <label>النمط<select id="s-gal-s"><option value="">كل الأنماط</option>${AD.STYLES.map(([k, n]) => `<option value="${k}">${n}</option>`).join('')}</select></label></div>
+   <div id="s-gal"></div><small id="s-gal-info"></small>
+   <small>الفيديوهات صور حقيقية لمساجد حُرّكت حركة كاميرا بطيئة فقط. عند الوقوف على فيديو تظهر معاينته في الشاشة الصغيرة (تحتاج الإنترنت).</small>
    <h3>المظهر</h3>
    <div class="g2"${pv('normal')}><label>التصميم<select id="s-theme">${th}</select></label>
     <label>الخط العام للشاشة<select id="s-font">${fo}</select></label>
@@ -592,7 +620,7 @@ function settingsHtml() {
    <p class="hint">الأسهم ▲▼◀▶ للانتقال إلى الخانة في ذلك الاتجاه، وOK للكتابة أو الاختيار. بعد الكتابة: زر الرجوع يغلق لوحة المفاتيح.
     الضغط المطوّل على زر الرجوع يعيدك إلى اختيار الوضع (هاتف / مسجد). قائمة المساجد من OpenStreetMap (© المساهمون، ODbL).</p></div>`;
 }
-let cityRows = [], pendingCity = null, ZSEL = 'panel', ADK = null, adkKey = 'all';
+let cityRows = [], pendingCity = null, ZSEL = 'panel', ADK = null, adkKey = 'all', GALK = 'fajr', GALS = '', MS = null;
 function suggest(listEl, items) {
   listEl.innerHTML = items.map(([k, lab]) => `<button data-k="${esc(k)}">${lab}</button>`).join('');
 }
@@ -622,7 +650,7 @@ function fitNote() {
   n.textContent = fz < 0.98 ? `⚠️ نص هذا الجزء أكبر من إطاره فيُصغَّر تلقائياً ليبقى داخله: الحجم الظاهر الآن ${Math.round(zOf(ZSEL) * fz * 100)}%. التكبير بعد هذا لن يظهر.` : '';
 }
 // ---- live mini screen beside the settings (the real display, scaled down)
-const zonePV = () => ({ iqama: { phase: 'iqama' }, adhkar: { phase: 'adhkar', k: adkK() }, hadith: { phase: 'jumua' } }[ZSEL] || { phase: 'normal' });
+const zonePV = () => ({ adhan: { phase: 'adhan', k: 'maghrib' }, iqama: { phase: 'iqama' }, adhkar: { phase: 'adhkar', k: adkK() }, hadith: { phase: 'jumua' } }[ZSEL] || { phase: 'normal' });
 const adkK = () => (adkKey === 'all' ? 'dhuhr' : adkKey);
 function refreshPV() {
   for (const id of ['tv-ticker', 'tv-panel', 'tv-nexthead', 'tv-over', 'tv-prayers', 'tv-date']) { const e = $(id); if (e) { e._h = null; e._t = null; } }
@@ -630,7 +658,7 @@ function refreshPV() {
   clearTimeout(refreshPV.t); refreshPV.t = setTimeout(fitNote, 150);
 }
 function showPV(p) {
-  const same = PV && p && PV.phase === p.phase && PV.k === p.k;
+  const same = PV && p && PV.phase === p.phase && PV.k === p.k && PV.vid === p.vid;
   PV = p; document.body.classList.toggle('pv', !!p);
   if (p && !same) { adhkarI = 0; lastAdhkar = 0; }
   if (p) refreshPV(); else document.body.dataset.phase = 'normal';
@@ -640,6 +668,7 @@ function pvFor(el) {
   const p = w.dataset.pv;
   if (p === 'zone') return zonePV();
   if (p === 'adhkar') return { phase: 'adhkar', k: adkK() };
+  if (p === 'adhan') return { phase: 'adhan', k: w.dataset.pvk || GALK || 'maghrib', vid: el.dataset && el.dataset.vid || '' };
   return { phase: p, k: w.dataset.pvk || (p === 'iqama' ? 'dhuhr' : '') };
 }
 let applyT = null;
@@ -663,6 +692,8 @@ function commit(full) {             // read every field, save, and refresh the s
     friday_before: NUM($('s-fri').value),
     tv_news: [...document.querySelectorAll('[data-list=news]')].map(i => i.value.trim()).filter(Boolean).join('\n'),
     tv_hadith: [...document.querySelectorAll('[data-list=hadith]')].map(i => i.value.trim()).filter(Boolean).join('\n'),
+    adhan_on: $('s-adhan-on').checked, adhan_mode: $('s-adhan-mode').value, adhan_bg: $('s-adhan-bg').value, adhan_protect: $('s-adhan-protect').checked,
+    adhan_s: Object.fromEntries(PRAYERS.map(k => [k, AD.parseS($('ad-' + k).value, cfg.adhan_s[k])])),
     tv_fast: $('s-fast').checked, tv_fast_week: $('s-fastw').checked, tv_adab_on: $('s-adab-on').checked, tv_cam: $('s-cam').checked,
     tv_adab: [...document.querySelectorAll('[data-list=adab]')].map(i => i.value.trim()).filter(Boolean).join('\n') });
   FASTC.key = '';
@@ -704,6 +735,7 @@ async function openSettings() {
     if (el.id === 's-country') { cityRows = model.cities(el.value); $('s-city').value = ''; mAuto(); }
     if (el.id === 's-mauto') mAuto();
     if (el.id === 's-mosque' || el.id === 's-city') return;            // handled by their suggestion lists / commit below
+    if (el.id === 's-gal-p' || el.id === 's-gal-s') { GALK = $('s-gal-p').value; GALS = $('s-gal-s').value; galDraw(); if (PV) showPV({ phase: 'adhan', k: GALK }); return; }
     commit();
     if (el.id === 's-font') zoneUI();
     if (el.id === 's-clock') clockUI();
@@ -751,6 +783,31 @@ async function openSettings() {
     const d = e.target.closest('[data-del],[data-akdel]'); if (!d) return;
     const row = d.closest('.li,.ak'), nxt = row.nextElementSibling || row.previousElementSibling;
     row.remove(); commit(); go(nxt ? nxt.querySelector('input') : $(d.dataset.akdel !== undefined ? 'add-adk' : 'add-' + d.dataset.del.split(':')[0]));
+  });
+  // adhan: options, stopwatch, video gallery
+  $('s-adhan-mode').value = cfg.adhan_mode || 'inside'; $('s-adhan-bg').value = cfg.adhan_bg || 'video';
+  $('s-gal-p').value = GALK; $('s-gal-s').value = GALS;
+  const galInfo = t => { const e = $('s-gal-info'); if (e) e.textContent = t; };
+  const galDraw = () => { const g = $('s-gal'); if (g) g.innerHTML = AD.galleryTiles(cfg, GALK, GALS); };
+  galDraw(); AD.catalog().then(c => { galDraw(); if (!c) galInfo('تعذّر تحميل قائمة الفيديوهات: صِل الجهاز بالإنترنت. الرسم المتحرك يعمل دون إنترنت.'); else AD.spaceInfo(cfg).then(galInfo); });
+  $('s-gal').onclick = async e => {
+    const b = e.target.closest('[data-vid]'); if (!b || b.disabled) return;
+    const id = b.dataset.vid; b.disabled = true;
+    try { await AD.tileAction(cfg, GALK, id, galInfo); save(); dirty = true; } finally { b.disabled = false; }
+    galDraw(); go($('s-gal').querySelector(`[data-vid="${id}"]`)); setTimeout(() => AD.spaceInfo(cfg).then(t => galInfo($('s-gal-info').textContent + ' · ' + t)), 50);
+  };
+  box.addEventListener('click', e => {
+    const b = e.target.closest('[data-ms]'); if (!b) return;
+    const k = b.dataset.ms, label = x => `⏱ قياس ${NAMES[x]}`;
+    if (MS && MS.k === k) {                     // stop: save the measured length
+      clearInterval(MS.iv); const secs = (Date.now() - MS.t0) / 1000; MS = null;
+      $('ad-' + k).value = AD.fmtS(secs); b.classList.remove('run'); b.textContent = label(k); commit();
+      return;
+    }
+    if (MS) { clearInterval(MS.iv); const ob = box.querySelector(`[data-ms="${MS.k}"]`); if (ob) { ob.classList.remove('run'); ob.textContent = label(MS.k); } }
+    MS = { k, t0: Date.now() }; b.classList.add('run');
+    const upd = () => { b.textContent = '⏹ إيقاف ' + AD.fmtS((Date.now() - MS.t0) / 1000); };
+    upd(); MS.iv = setInterval(() => { if (!MS || !document.body.contains(b)) return clearInterval(MS && MS.iv); upd(); }, 500);
   });
   // text sizes per part
   box.querySelectorAll('.chip').forEach(c => c.onclick = () => { ZSEL = c.dataset.zone; zoneUI(); showPV(zonePV()); });
@@ -1012,11 +1069,11 @@ export async function start() {
   cfg = load();
   document.body.className = 'tv'; document.body.dataset.phase = 'normal';
   const pv = S.FONTS.map(f => `@font-face{font-family:'F-${f[0]}';src:url('fonts/${f[4]}')}`).join('');   // previews in the settings
-  document.body.innerHTML = `<style>${CSS}${pv}</style><style id="tv-faces"></style><style id="tv-theme"></style>
+  document.body.innerHTML = `<style>${CSS}${AD.CSS}${pv}</style><style id="tv-faces"></style><style id="tv-theme"></style>
    <div id="tv"><div class="tv-head"><div class="tv-mos" id="tv-mos"></div><div id="tv-clockbox"><span id="tv-clock"></span><span id="tv-sec"></span></div><div id="tv-date"></div></div>
     <div class="tv-mid"><div class="box" id="tv-next"><div class="fit"><div id="tv-nexthead"></div><div id="tv-cdbox"><span>بعد</span><b id="tv-cd"></b></div></div></div><div class="box" id="tv-panel"></div></div>
     <div id="tv-prayers"></div><div id="tv-ticker"></div></div>
-   <div id="tv-over"></div><div id="tv-settings"></div>`;
+   <div id="tv-abg"></div><div id="tv-over"></div><div id="tv-settings"></div>`;
   applyTheme();
   try { if (P.Screen) await P.Screen.keepOn({ on: true }); } catch (e) { }
   applyRes();

@@ -12,7 +12,10 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(SheetPrinterPlugin.class);
         registerPlugin(ScreenPlugin.class);
         registerPlugin(UpdaterPlugin.class);
+        registerPlugin(AdhanMediaPlugin.class);
         super.onCreate(savedInstanceState);
+        // adhan background videos are muted and must start on their own (no touch on a TV)
+        try { getBridge().getWebView().getSettings().setMediaPlaybackRequiresUserGesture(false); } catch (Exception e) { }
     }
 
     /** Long press on «Back» (about 1 s): return to the first-start choice (phone / mosque display). */

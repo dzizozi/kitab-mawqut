@@ -1,0 +1,116 @@
+{
+ "version": 1,
+ "updated": "2026-11-21",
+ "base": "https://github.com/dzizozi/kitab-mawqut/releases/download/adhan-media-v1/",
+ "styles": {
+  "maghreb": "مغربي وشمال إفريقي",
+  "orient": "شرقي (الحرمان)",
+  "turkish": "تركي",
+  "nature": "طبيعة"
+ },
+ "videos": [
+  {
+   "id": "ma-casa-fajr-sunrise",
+   "prayers": [
+    "fajr"
+   ],
+   "style": "maghreb",
+   "title_ar": "الدار البيضاء عند الشروق",
+   "credit": "Photo: SpreeTom, Wikimedia Commons «Sunrise in Casablanca with Hassan II Mosque» https://commons.wikimedia.org/wiki/File:Sunrise_in_Casablanca_with_Hassan_II_Mosque.jpg",
+   "license": "CC BY-SA 4.0",
+   "ai": "Animated with Google Flow (camera motion only)",
+   "file": "ma-casa-fajr-sunrise.mp4",
+   "preview": "ma-casa-fajr-sunrise.webp",
+   "bytes": 3981754,
+   "seconds": 8,
+   "width": 1280,
+   "height": 720
+  },
+  {
+   "id": "ma-hassan2-dhuhr-waves",
+   "prayers": [
+    "dhuhr"
+   ],
+   "style": "maghreb",
+   "title_ar": "مسجد الحسن الثاني والأمواج",
+   "credit": "Photo: Pexels https://www.pexels.com/photo/28289056/",
+   "license": "Pexels License",
+   "ai": "Animated with Google Flow (camera motion only)",
+   "file": "ma-hassan2-dhuhr-waves.mp4",
+   "preview": "ma-hassan2-dhuhr-waves.webp",
+   "bytes": 2311252,
+   "seconds": 8,
+   "width": 1280,
+   "height": 720
+  },
+  {
+   "id": "ma-hassan2-asr-plaza",
+   "prayers": [
+    "asr"
+   ],
+   "style": "maghreb",
+   "title_ar": "ساحة مسجد الحسن الثاني",
+   "credit": "Photo: Halil Cihat Daricioglu, Pexels https://www.pexels.com/photo/32880203/",
+   "license": "Pexels License",
+   "ai": "Animated with Google Flow (camera motion only)",
+   "file": "ma-hassan2-asr-plaza.mp4",
+   "preview": "ma-hassan2-asr-plaza.webp",
+   "bytes": 2759518,
+   "seconds": 8,
+   "width": 1280,
+   "height": 720
+  },
+  {
+   "id": "ma-hassan2-asr-mist",
+   "prayers": [
+    "asr",
+    "fajr"
+   ],
+   "style": "maghreb",
+   "title_ar": "صومعة الحسن الثاني في الضباب",
+   "credit": "Photo: Tinuzzo, Wikimedia Commons https://commons.wikimedia.org/wiki/File:Hassan_II_Mosque_-_general_framing,_Casablanca,_Morocco.jpg",
+   "license": "CC BY 4.0",
+   "ai": "Animated with Google Flow (camera motion only)",
+   "file": "ma-hassan2-asr-mist.mp4",
+   "preview": "ma-hassan2-asr-mist.webp",
+   "bytes": 2212564,
+   "seconds": 8,
+   "width": 1280,
+   "height": 720
+  },
+  {
+   "id": "ma-hassan2-maghrib-golden",
+   "prayers": [
+    "maghrib"
+   ],
+   "style": "maghreb",
+   "title_ar": "مسجد الحسن الثاني بضوء الغروب",
+   "credit": "Photo: Pexels https://www.pexels.com/photo/33143809/",
+   "license": "Pexels License",
+   "ai": "Animated with Google Flow (camera motion only)",
+   "file": "ma-hassan2-maghrib-golden.mp4",
+   "preview": "ma-hassan2-maghrib-golden.webp",
+   "bytes": 3078834,
+   "seconds": 8,
+   "width": 1280,
+   "height": 720
+  },
+  {
+   "id": "ma-hassan2-isha-night",
+   "prayers": [
+    "isha"
+   ],
+   "style": "maghreb",
+   "title_ar": "مسجد الحسن الثاني ليلاً",
+   "credit": "Day photo: Pexels https://www.pexels.com/photo/28289056/",
+   "license": "Pexels License",
+   "ai": "Night lighting is AI-generated (Google Flow, Nano Banana) from the day photo, then animated (camera motion only). Not a real night photograph.",
+   "file": "ma-hassan2-isha-night.mp4",
+   "preview": "ma-hassan2-isha-night.webp",
+   "bytes": 2486525,
+   "seconds": 8,
+   "width": 1280,
+   "height": 720
+  }
+ ]
+}
