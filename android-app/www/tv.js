@@ -413,7 +413,7 @@ function render() {
 
   const ov = $('tv-over'); let html = '';
   if (phase === 'adhan') {
-    html = `<div class="adn"><div class="adn-l">حان الآن موعد</div><div class="adn-t">أذان ${NAMES[cur.k]}</div><div class="adn-tm">${hm(cur.adhan)}</div>
+    html = `<div class="adn"><div class="adn-l">يُرفع الآن</div><div class="adn-t">أذان ${NAMES[cur.k]}</div><div class="adn-tm">${hm(cur.adhan)}</div>
       <div class="adn-iq">الإقامة ${hm(cur.iqama)}${cfg.mosque_name ? ' · ' + esc(cfg.mosque_name) : ''}</div><div class="adn-d">${AD.DUA}<small>${AD.DUA_SRC}</small></div></div>`;
   } else if (phase === 'iqama') {
     html = `<div class="ovl">أُذّن لصلاة ${NAMES[cur.k]}</div><div class="ovt">الإقامة بعد</div><div class="ovc">${dur(cur.iqama - now)}</div>
