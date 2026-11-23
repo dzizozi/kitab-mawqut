@@ -4,7 +4,7 @@ import os, sys
 APP_ID = 'AlKitabAlMawqut'
 APP_NAME_AR = 'كتابا موقوتا'
 APP_NAME_LAT = 'Al-Kitab Al-Mawqut'
-VERSION = '2.1.0'
+VERSION = '2.2.0'
 
 FROZEN = getattr(sys, 'frozen', False)
 RES = os.path.join(sys._MEIPASS, 'mawaqit') if FROZEN else os.path.dirname(os.path.abspath(__file__))

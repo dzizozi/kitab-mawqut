@@ -23,7 +23,7 @@ const TV_DEFAULTS = {
   tv_theme: 'zellige', riwaya: 'warsh', digits: 'auto', tv_font: 'cairo', tv_scale: 100, tv_res: 'auto', method_auto: true, clock_mode: 'auto', clock_adj: 0, tv_fast: true, tv_fast_week: false, tv_adab_on: true, tv_cam: false,
   tv_adab: DEF_ADAB,
   iqama: { fajr: 20, dhuhr: 15, asr: 15, maghrib: 7, isha: 10 }, jumua_iqama: 30,
-  prayer_min: 10, adhkar_min: 7, friday_before: 45, ...AD.ADHAN_DEFAULTS,
+  prayer_min: 10, adhkar_min: 7, friday_before: 45, hizb_pin: { fajr: 30, maghrib: 40 }, ...AD.ADHAN_DEFAULTS,
   tv_news: 'يُرجى إغلاق الهاتف أو جعله على الصامت قبل الدخول في الصلاة\nسَوُّوا صُفُوفَكُمْ، فَإِنَّ تَسْوِيَةَ الصُّفُوفِ مِنْ إِقَامَةِ الصَّلَاةِ\nحافظوا على نظافة المسجد',
   tv_hadith: 'قال رسول الله ﷺ: «إِذَا قُلْتَ لِصَاحِبِكَ يَوْمَ الْجُمُعَةِ: أَنْصِتْ، وَالْإِمَامُ يَخْطُبُ، فَقَدْ لَغَوْتَ» متفق عليه\nوقال ﷺ: «وَمَنْ مَسَّ الْحَصَى فَقَدْ لَغَا» رواه مسلم',
 };
@@ -158,6 +158,7 @@ function load() {
   try { c = JSON.parse(localStorage.getItem('cfg') || '{}'); } catch (e) { }
   const out = { ...model.DEFAULTS, ...TV_DEFAULTS, ...c };
   out.iqama = { ...TV_DEFAULTS.iqama, ...(c.iqama || {}) };
+  out.hizb_pin = { ...TV_DEFAULTS.hizb_pin, ...(c.hizb_pin || {}) };
   out.adhan_s = { ...AD.ADHAN_DEFAULTS.adhan_s, ...(c.adhan_s || {}) };
   out.adhan_vids = { ...(c.adhan_vids || {}) };
   out.tv_adhkar = { all: DEF_ADHKAR, ...(c.tv_adhkar || {}) };
@@ -216,6 +217,14 @@ function hizbHtml(row) {
   const one = (h, lab) => `<div class="hz"><div class="hzt"><span>${lab}</span><b>الحزب ${dg(h.n)}</b></div>
     <div class="q">${qt(h.words)} …</div><div class="hzr">من سورة ${h.sura_name} ${dg(h.aya)} إلى سورة ${h.end_sura_name} ${dg(h.end_aya)}</div></div>`;
   return `<h3>الحزب الراتب لليوم</h3><div class="fit hz2">${one(f, 'بعد صلاة الصبح')}${one(m, 'بعد صلاة المغرب')}</div>`;
+}
+// after the Fajr / Maghrib adhkar: that prayer's hizb stays alone in the big panel for cfg.hizb_pin[k] minutes
+function hizbPinHtml(row, k) {
+  if (!AHZAB || !row) return '';
+  const A = AHZAB[cfg.riwaya === 'hafs' ? 'hafs' : 'warsh'];
+  const d = Math.min(30, row.hday), h = A[2 * d - (k === 'maghrib' ? 1 : 2)];
+  return `<h3>حزب ${k === 'maghrib' ? 'المساء' : 'الصبح'} · الحزب الراتب</h3><div class="fit hz1"><div class="hz"><div class="hzt"><b>الحزب ${dg(h.n)}</b></div>
+    <div class="q">${qt(h.words)} …</div><div class="hzr">من سورة ${h.sura_name} ${dg(h.aya)} إلى سورة ${h.end_sura_name} ${dg(h.end_aya)}</div></div></div>`;
 }
 // ---------------------------------------------------------------- voluntary fasting: 2 days before, 1 day before, and on the day
 const FAST_V = {
@@ -383,9 +392,17 @@ function render() {
     if (now >= p.iqama && now < endPrayer) { phase = 'prayer'; cur = p; break; }
     if (now >= endPrayer && now < addMin(endPrayer, +cfg.adhkar_min)) { phase = 'adhkar'; cur = p; break; }
   }
+  let pin = null;
+  for (const p of today) {
+    const pm = +(cfg.hizb_pin || {})[p.k] || 0;
+    if (!pm || !p.iqama || (p.k !== 'fajr' && p.k !== 'maghrib')) continue;
+    const st = addMin(p.iqama, +cfg.prayer_min + +cfg.adhkar_min);
+    if (now >= st && now < addMin(st, pm)) pin = p.k;
+  }
+  if (PV) pin = PV.phase === 'hizb' ? (PV.k || 'fajr') : null;
   if (PV) {                               // settings preview: show the chosen stage with sample times
     const k = PV.k || 'dhuhr';
-    phase = PV.phase;
+    phase = PV.phase === 'hizb' ? 'normal' : PV.phase;
     cur = phase === 'jumua' ? { k: 'jumua', adhan: addMin(now, +cfg.friday_before || 0), iqama: addMin(now, (+cfg.friday_before || 0) + (+cfg.jumua_iqama || 0)) }
       : phase === 'iqama' ? { k, adhan: addMin(now, -1), iqama: addMin(now, (+(cfg.iqama[k] ?? 10) || 1) - 1) }
       : phase === 'adhan' ? { k, adhan: now, iqama: addMin(now, +(cfg.iqama[k] ?? 10) + adhanAfter(k)), vid: PV.vid } : { k };
@@ -408,8 +425,8 @@ function render() {
     setText($('tv-cd'), dur(next.adhan - now));
   }
   if (now - lastSlide > 15000) { lastSlide = +now; slideI++; }
-  const sl = slides(row);
-  if (setHTML($('tv-panel'), sl[slideI % sl.length])) fitBox($('tv-panel'));
+  const sl = pin ? [hizbPinHtml(row, pin)] : slides(row);
+  if (setHTML($('tv-panel'), sl[slideI % sl.length] || sl[0])) fitBox($('tv-panel'));
 
   const ov = $('tv-over'); let html = '';
   if (phase === 'adhan') {
@@ -490,7 +507,8 @@ const ZRULES = {
   next: [['#tv-nexthead .lab', 3, null], ['#tv-nexthead .nm', 9, 1.15], ['#tv-nexthead .tm', 5.2, null], ['#tv-nexthead .iq', 3.2, null],
     ['#tv-cdbox span', 3.2, null], ['#tv-cd', 8, 1]],
   panel: [['#tv-panel h3', 3.4, null], ['#tv-panel .big', 8, 1.45], ['#tv-panel .big.fn', 6.4, 1.3], ['#tv-panel .fh', 3.6, null], ['#tv-panel .fv', 4, 1.6],
-    ['#tv-panel .hzt', 3, null], ['#tv-panel .hzt b', 6, null], ['#tv-panel .q', 5, 1.7], ['#tv-panel .hzr', 2.5, null]],
+    ['#tv-panel .hzt', 3, null], ['#tv-panel .hzt b', 6, null], ['#tv-panel .q', 5, 1.7], ['#tv-panel .hzr', 2.5, null],
+    ['#tv-panel .hz1 .hzt b', 9, null], ['#tv-panel .hz1 .q', 8, 1.7], ['#tv-panel .hz1 .hzr', 4, null]],
   cards: [['.pc .pn', 3.8, null, 3.3], ['.pc .pt', 7, 1.15, 5.2], ['.pc .pi', 2.6, null, 1.65]],      // 4th: max size in vw (6 cards side by side)
   ticker: [['#tv-ticker .tk', 3.6, null]],
   iqama: [['#tv-over .ovl', 6, null], ['#tv-over .ovt', 11, null], ['#tv-over .ovc', 30, 1], ['#tv-over .ovn', 4, null]],
@@ -568,6 +586,9 @@ function settingsHtml() {
    <div class="g6"${pv('iqama')}>${PRAYERS.map(k => `<label${pv('iqama', k)}>${NAMES[k]}${numIn('iq-' + k, cfg.iqama[k], ` data-iq="${k}"`)}</label>`).join('')}<label${pv('jumua')}>الجمعة${numIn('s-jiq', cfg.jumua_iqama)}</label></div>
    <div class="g3"><label${pv('prayer')}>مدة الصلاة${numIn('s-pmin', cfg.prayer_min)}</label><label${pv('adhkar')}>مدة الأذكار بعدها${numIn('s-amin', cfg.adhkar_min)}</label>
     <label${pv('jumua')}>الحديث قبل أذان الجمعة${numIn('s-fri', cfg.friday_before)}</label></div>
+   <div class="g2"><label${pv('hizb', 'fajr')}>تثبيت حزب الصبح بعد الأذكار<select id="s-hz-fajr">${[0,10,20,30,40,50,60].map(n => `<option value="${n}">${n ? n + (n === 10 ? ' دقائق' : ' دقيقة') : 'بدون تثبيت'}</option>`).join('')}</select></label>
+    <label${pv('hizb', 'maghrib')}>تثبيت حزب المساء بعد أذكار المغرب<select id="s-hz-maghrib">${[0,10,20,30,40,50,60].map(n => `<option value="${n}">${n ? n + (n === 10 ? ' دقائق' : ' دقيقة') : 'بدون تثبيت'}</option>`).join('')}</select></label></div>
+   <small>يبقى الحزب وحده في المكان الكبير طوال هذه المدة، والإعلانات تمرّ في السطر المتحرك فقط، ثم تعود الشاشة إلى حالتها العادية.</small>
    <h3>الأذان <small>(شاشة كاملة عند دخول وقت كل صلاة)</small></h3>
    <label class="chk"${pv('adhan', 'maghrib')}><input type="checkbox" id="s-adhan-on"${cfg.adhan_on !== false ? ' checked' : ''}><span>عرض شاشة الأذان عند دخول الوقت (يوم الجمعة يبقى حديث الجمعة)</span></label>
    <div class="g2"><label${pv('adhan', 'dhuhr')}>الإقامة والأذان<select id="s-adhan-mode"><option value="inside">مدة الإقامة تشمل مدة الأذان (وقت الإقامة لا يتغيّر)</option><option value="after">تُحسب مدة الإقامة بعد انتهاء الأذان</option></select></label>
@@ -695,7 +716,7 @@ function commit(full) {             // read every field, save, and refresh the s
   const res = $('s-res').value, resChanged = res !== (cfg.tv_res || 'auto');
   Object.assign(cfg, { mosque_name: $('s-mosque').value.trim(), tv_theme: $('s-theme').value, riwaya: $('s-riwaya').value, digits: $('s-digits').value,
     tv_font: $('s-font').value, tv_res: res, clock_mode: $('s-clock').value,
-    jumua_iqama: NUM($('s-jiq').value), prayer_min: NUM($('s-pmin').value, 10) || 10, adhkar_min: NUM($('s-amin').value),
+    jumua_iqama: NUM($('s-jiq').value), prayer_min: NUM($('s-pmin').value, 10) || 10, adhkar_min: NUM($('s-amin').value), hizb_pin: { fajr: +$('s-hz-fajr').value || 0, maghrib: +$('s-hz-maghrib').value || 0 },
     friday_before: NUM($('s-fri').value),
     tv_news: [...document.querySelectorAll('[data-list=news]')].map(i => i.value.trim()).filter(Boolean).join('\n'),
     tv_hadith: [...document.querySelectorAll('[data-list=hadith]')].map(i => i.value.trim()).filter(Boolean).join('\n'),
@@ -792,6 +813,7 @@ async function openSettings() {
     row.remove(); commit(); go(nxt ? nxt.querySelector('input') : $(d.dataset.akdel !== undefined ? 'add-adk' : 'add-' + d.dataset.del.split(':')[0]));
   });
   // adhan: options, stopwatch, video gallery
+  $('s-hz-fajr').value = String(cfg.hizb_pin.fajr); $('s-hz-maghrib').value = String(cfg.hizb_pin.maghrib);
   $('s-adhan-mode').value = cfg.adhan_mode || 'inside'; $('s-adhan-text').value = cfg.adhan_text || 'brief'; $('s-adhan-bg').value = cfg.adhan_bg || 'video';
   $('s-gal-p').value = GALK; $('s-gal-s').value = GALS;
   const galInfo = t => { const e = $('s-gal-info'); if (e) e.textContent = t; };
